@@ -1,8 +1,8 @@
-# 🌉 Delight Bridge
+# 🌉 DelightBridge
 
 > Your AI-powered email assistant for seamless communication
 
-**Delight Bridge** helps you draft, translate, and manage emails effortlessly—because you deserve a better morning.
+**DelightBridge** helps you draft, translate, and manage emails effortlessly—because you deserve a better morning.
 
 ---
 
