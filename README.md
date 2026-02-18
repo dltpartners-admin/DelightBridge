@@ -123,48 +123,8 @@ ANTHROPIC_API_KEY=sk-ant-...
 
 ---
 
-## 🎯 Roadmap
-
-- [ ] Multi-account support
-- [ ] Custom AI model selection
-- [ ] Advanced search filters
-- [ ] Email scheduling
-- [ ] Mobile app
-
----
-
 ## 📖 Documentation
 
 For detailed architecture and design decisions, see:
 - [PLAN.md](./PLAN.md) - Project overview and architecture
 - [AGENTS.md](./AGENTS.md) - Development guidelines and conventions
-
----
-
-## 🤝 Contributing
-
-Contributions are welcome! Please follow the guidelines in [AGENTS.md](./AGENTS.md) for commit discipline and code style.
-
----
-
-## 📄 License
-
-MIT License - see [LICENSE](./LICENSE) for details
-
----
-
-## 💬 Support
-
-Have questions or feedback? Open an issue or reach out to [admin@dlt-partners.com](mailto:admin@dlt-partners.com)
-
----
-
-<div align="center">
-
-**You deserve a better morning ☕**
-
-[Privacy Policy](#) • [Terms & Conditions](#)
-
-Made with ❤️ by DLT Partners
-
-</div>
