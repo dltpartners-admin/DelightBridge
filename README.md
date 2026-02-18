@@ -1,62 +1,62 @@
 # DelightBridge
 
-> Your AI-powered email assistant for seamless communication
+Your AI email assistant for seamless global communication.
 
-## What is DelightBridge?
+---
 
-DelightBridge helps you draft, translate, and manage emails effortlessly. With DelightBridge, you can handle multilingual communication with ease.
+## Write emails that sound like you
 
-- **Draft With AI** - Emails that actually sound like you, with context-aware responses
-- **Real-Time Translation** - Break language barriers instantly while maintaining your tone
-- **Smart Document Management** - Keep everything organized with service-based categorization
-- **Conversation History** - Never lose track of important exchanges with full thread views
+No more staring at blank drafts. DelightBridge helps you write emails that capture your voice and tone perfectly. Just tell it what you want to say, and get a polished draft in seconds.
 
-## Installation
+## Break language barriers instantly
 
+Communicating across languages has never been easier. Translate your emails in real-time while keeping your original meaning and tone intact. Write in English, send in Korean—or any combination you need.
+
+## Keep everything organized
+
+Manage all your conversations in one place. Find past emails instantly, track ongoing threads, and never lose important context. Everything you need is right where you expect it.
+
+## Built for privacy
+
+Your conversations stay yours. We use bank-grade security to protect your data, and you control where your information goes.
+
+---
+
+## Getting Started
+
+DelightBridge is a web application that runs locally on your computer.
+
+### Requirements
+- A computer running macOS, Windows, or Linux
+- An Anthropic API key ([get one here](https://console.anthropic.com/))
+
+### Installation
+
+1. Download the code:
 ```bash
-# Clone the repository
 git clone https://github.com/dltpartners-admin/DelightBridge.git
 cd delight-bridge
+```
 
-# Install dependencies
+2. Install dependencies:
+```bash
 pnpm install
+```
 
-# Set up environment variables
-echo "ANTHROPIC_API_KEY=your-api-key-here" > .env.local
+3. Add your API key:
 
-# Start development server
+Create a file called `.env.local` and add:
+```
+ANTHROPIC_API_KEY=your-key-here
+```
+
+4. Start the app:
+```bash
 pnpm dev
 ```
 
-Visit [http://localhost:3000](http://localhost:3000) to see the application.
+5. Open your browser to [http://localhost:3000](http://localhost:3000)
 
-## Available Commands
+---
 
-```bash
-pnpm dev          # Start development server
-pnpm build        # Create production build
-pnpm start        # Start production server
-pnpm lint         # Run ESLint
-```
-
-## Tech Stack
-
-- **Framework**: Next.js 15 with App Router
-- **Language**: TypeScript
-- **Styling**: Tailwind CSS
-- **AI**: Anthropic Claude API
-- **State Management**: React Context
-
-## Environment Variables
-
-Create a `.env.local` file in the root directory:
-
-```env
-ANTHROPIC_API_KEY=sk-ant-...
-```
-
-## Documentation
-
-For detailed architecture and design decisions, see:
-- [PLAN.md](./PLAN.md) - Project overview and architecture
-- [AGENTS.md](./AGENTS.md) - Development guidelines and conventions
+Questions? Contact us at admin@dlt-partners.com
