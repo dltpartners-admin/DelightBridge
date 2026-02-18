@@ -2,6 +2,8 @@
 
 Your AI email assistant for seamless global communication.
 
+![DelightBridge Interface](./public/readme_image.png)
+
 ---
 
 ## Write emails that sound like you
