@@ -1,0 +1,335 @@
+# DelightBridge — Project Plan
+
+## Overview
+
+여러 Gmail 계정(서비스)의 메일을 한 곳에서 관리하고, 계정별 참고 문서를 기반으로 LLM이 답변 초안을 자동 생성하는 웹 앱.
+스프레드시트처럼 인라인에서 바로 수정 · 재생성 · 발송 가능.
+
+## Requirements
+
+### 기본 요구사항
+
+- Gmail 3개 계정 (확장 가능), 일 150건
+- 계정별 다른 참고 문서 (Markdown)
+- Vercel 배포, PC 웹 전용
+- 협업 가능 (여러 사람이 접근)
+- 핵심: 상세 페이지 없이 테이블에서 바로 작업
+
+### 추가 요구사항
+
+- 메일 스레드(체인) 전체 컨텍스트 참조하여 답변 생성
+- 오발송 방지를 위한 발송 확인 팝업
+- 체크박스 선택 후 일괄 발송
+- 계정(서비스)별 필터링
+- 계정별 사용자 권한 관리 (협업 시 접근 제어)
+- 서비스별 메일 카테고리 자동 라벨링
+
+## Tech Stack
+
+- **Framework**: Next.js 16 (App Router)
+- **Language**: TypeScript (strict mode)
+- **Package Manager**: pnpm
+- **Styling**: Tailwind CSS v4 with PostCSS
+- **Rich Text Editor**: TipTap
+- **AI**: Anthropic Claude API (`@anthropic-ai/sdk`) — claude-sonnet-4-5-20250514
+- **Deployment**: Vercel
+
+### Future (planned)
+
+- **Database**: Supabase (PostgreSQL + Auth)
+- **Email**: Gmail API (OAuth 2.0)
+- **Table**: TanStack Table (스프레드시트 UX)
+- **Auth**: NextAuth (Google OAuth)
+
+## Architecture
+
+### System Architecture
+
+```
+[Vercel - Next.js]
+    │
+    ├── Frontend (React)
+    │     └── 3-Column Layout (Sidebar + Mail List + Detail Panel)
+    │
+    └── API Routes
+          ├── /api/draft/generate   (초안 생성)
+          ├── /api/draft/talk       (Talk to Draft — 자연어로 초안 수정)
+          └── /api/draft/translate  (한국어 번역)
+```
+
+### Directory Structure
+
+```
+src/
+├── app/                    # Next.js App Router
+│   ├── api/draft/          # AI API endpoints
+│   │   ├── generate/       # Generate initial draft from thread + service docs
+│   │   ├── talk/           # Refine draft via natural language instruction
+│   │   └── translate/      # Translate draft to Korean
+│   ├── layout.tsx          # Root layout (Korean locale, Pretendard font)
+│   └── page.tsx            # Entry point, renders MainLayout
+├── components/             # React components
+│   ├── MainLayout.tsx      # Primary orchestrator — manages all state
+│   ├── Sidebar.tsx         # Service filter + Settings button
+│   ├── MailList.tsx        # Filterable email thread list
+│   ├── MailDetail.tsx      # Thread view + draft editor container
+│   ├── ThreadView.tsx      # Email thread messages display
+│   ├── DraftEditor.tsx     # TipTap-based rich text editor
+│   ├── TalkToDraft.tsx     # Natural language draft refinement UI
+│   ├── TranslationPanel.tsx# Korean translation preview
+│   ├── SendConfirmModal.tsx# Send confirmation popup
+│   ├── BulkSendModal.tsx   # Bulk send confirmation popup
+│   └── SettingsModal.tsx   # Settings modal (서비스/문서/카테고리/권한)
+└── lib/
+    ├── types.ts            # TypeScript interfaces
+    ├── utils.ts            # Utility functions (cn, formatTime, etc.)
+    └── mock-data.ts        # Mock services and email threads
+```
+
+### State Management
+
+모든 애플리케이션 상태는 `MainLayout.tsx`에 위치. 자식 컴포넌트는 props로 데이터와 콜백을 전달받음. 외부 상태관리 라이브러리 없음.
+
+### AI Integration
+
+모든 Claude API 호출은 Next.js API Routes(`/api/draft/*`)를 통해 수행:
+1. 프론트엔드에서 요청 데이터 전송 (스레드 메시지, 참고 문서, 드래프트 등)
+2. API Route에서 프롬프트 구성
+3. Claude API 호출 후 JSON 응답 파싱
+4. 구조화된 결과를 프론트엔드에 반환
+
+## Data Models
+
+### Service
+
+서비스(Gmail 계정)를 나타냄.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| id | string | 고유 식별자 |
+| name | string | 서비스명 (예: "Noji", "AnkiPro") |
+| email | string | 지원 이메일 주소 |
+| color | string | 브랜드 색상 (hex) |
+| categories | Category[] | 서비스별 카테고리 목록 |
+| signature | string | HTML 서명 |
+| document | string | AI 참고 문서 (Markdown) |
+| unreadCount | number | 읽지 않은 메일 수 |
+
+### Category
+
+| Field | Type | Description |
+|-------|------|-------------|
+| id | string | 고유 식별자 |
+| name | string | 카테고리명 |
+| color | string | 배경색 (hex) |
+| textColor | string | 텍스트색 (hex) |
+
+### EmailThread
+
+| Field | Type | Description |
+|-------|------|-------------|
+| id | string | 고유 식별자 |
+| serviceId | string | 소속 서비스 ID |
+| subject | string | 메일 제목 |
+| customerEmail | string | 고객 이메일 |
+| customerName | string | 고객 이름 |
+| messages | EmailMessage[] | 스레드 내 메시지 목록 |
+| categoryId | string | 분류된 카테고리 ID |
+| status | 'inbox' \| 'sent' \| 'archived' | 상태 |
+| draft | string | HTML 드래프트 본문 |
+| draftSubject | string | 드래프트 제목 |
+| detectedLanguage | string | 감지된 언어 코드 |
+| translation | string | 한국어 번역 |
+| lastMessageAt | string | 마지막 메시지 시각 (ISO) |
+| isRead | boolean | 읽음 여부 |
+
+### EmailMessage
+
+| Field | Type | Description |
+|-------|------|-------------|
+| id | string | 고유 식별자 |
+| fromEmail | string | 발신자 이메일 |
+| fromName | string | 발신자 이름 |
+| toEmail | string | 수신자 이메일 |
+| body | string | HTML 본문 |
+| timestamp | string | 발신 시각 (ISO) |
+| direction | 'inbound' \| 'outbound' | 방향 |
+
+## UI Layout
+
+### 전체 레이아웃 (3-Column)
+
+```
+┌─────────────┬──────────────────────────────┬─────────────────────────────────┐
+│ SIDEBAR     │ MAIL LIST                    │ DETAIL PANEL                    │
+│ (서비스)    │ (메일 목록)                  │ (메일 스레드 + AI 초안)         │
+│ 60px        │ 320px                        │ 나머지 (flex)                   │
+└─────────────┴──────────────────────────────┴─────────────────────────────────┘
+```
+
+### Sidebar (60px)
+
+- 상단: 로고
+- 중앙: 서비스 아이콘 (배지 = 미확인 메일 수, hover 시 서비스명 툴팁)
+- 하단: 설정 버튼 → Settings Modal
+
+### Mail List (320px)
+
+- 상단: 필터 드롭다운 (Inbox / Sent / Archived / All) + 카테고리 필터
+- 리스트: 체크박스(hover시 노출) + 발신자 + 제목 + 카테고리 태그 + 메시지 수 + 시간
+- 하단 액션바: 선택 시 노출 (Send All / Archive / 선택 해제)
+
+### Detail Panel (flex)
+
+위에서 아래로 단일 스크롤 영역:
+
+1. **Thread** — 메일 스레드 전체 표시
+2. **Translation** — 비한국어일 때만 표시, 접기/펼치기
+3. **Talk to Draft** — AI에게 자연어로 수정 요청, 접기/펼치기, 퀵 프롬프트 버튼
+4. **AI Draft** — TipTap 리치 텍스트 에디터, To/Subject, 서명 자동 포함, 자동저장(500ms debounce), Regenerate/Send 버튼
+
+### Settings Modal
+
+풀스크린 모달, 좌측 탭 + 우측 콘텐츠:
+
+1. **서비스 관리** — 서비스 목록, 이름/이메일/색상 수정, 추가/삭제
+2. **문서 및 서명 관리** — 서비스별 참고 문서(Markdown 편집), 서명(HTML 편집)
+3. **카테고리 설정** — 서비스별 카테고리 CRUD (이름, 색상)
+4. **권한 관리** — 멤버별 권한 레벨 (View/Edit/Send/Admin)
+
+## Key Flows
+
+### 1. 초안 자동 생성 (Draft Generation)
+
+1. 사용자가 스레드 선택 → `MainLayout.handleSelectThread`
+2. 드래프트가 비어있으면 `generateDraft()` 자동 호출
+3. API Route에서 서비스 참고 문서 + 스레드 전체 메시지로 프롬프트 구성
+4. AI가 초안 생성 + 카테고리 자동 분류
+5. 서비스 서명 서버사이드에서 추가
+
+### 2. Talk to Draft (초안 수정)
+
+1. 사용자가 자연어 명령 입력 (예: "더 간결하게", "영어로")
+2. 현재 드래프트 + 명령 + 스레드 컨텍스트를 API Route로 전달
+3. AI가 수정된 드래프트 반환
+4. 에디터에 자동 반영
+
+### 3. 번역 (Translation)
+
+1. 비한국어 메일의 경우, Translation 패널에서 "Translate" 버튼 클릭
+2. 현재 드래프트를 API Route로 전달
+3. AI가 한국어 번역 반환
+4. Translation 패널에 표시 (읽기 전용)
+
+### 4. 발송 (Send)
+
+1. Send 버튼 클릭 → 확인 팝업 (To, From, Subject, 미리보기)
+2. "Don't show again" 체크 옵션
+3. 확인 시 status → 'sent'
+4. 일괄 발송: 체크박스 선택 → 하단 액션바 "Send All" → Bulk Send 팝업
+
+## LLM Prompt Structure
+
+### 초안 생성 프롬프트
+
+```
+System: 고객 지원 담당자 역할
+참고 문서: {service.document}
+메일 스레드: {thread messages}
+카테고리 목록: {service.categories}
+
+Instructions:
+- HTML 본문만 작성 (<p>, <strong>, <em>, <ol>, <ul>, <li>, <a>)
+- 고객 이름 사용, 따뜻하고 공감적 톤
+- 고객의 최신 메시지와 같은 언어로 작성
+- 카테고리 자동 분류
+- 서명/인사말 미포함 (서버사이드에서 추가)
+```
+
+### Talk to Draft 프롬프트
+
+```
+현재 드래프트 + 수정 명령 + 스레드 컨텍스트
+→ 수정된 HTML 드래프트 반환
+```
+
+## Environment Variables
+
+```
+ANTHROPIC_API_KEY=sk-ant-...
+```
+
+## Design
+
+- **Theme**: 라이트 모드, 깔끔한 UI
+- **Font**: Pretendard
+- **Colors**: 흰 배경(#ffffff) + 회색 텍스트 + 서비스별 액센트 컬러
+- **UI 문구**: AI 모델명 노출 금지 — "AI"로 통일
+
+## DB Schema (Future — Supabase)
+
+### users
+id, email, name, role (admin | member), created_at
+
+### organizations
+id, name, created_at
+
+### org_members
+id, org_id (FK), user_id (FK), created_at
+
+### gmail_accounts (= 서비스)
+id, org_id (FK), email, display_name, access_token (encrypted), refresh_token (encrypted), document_id (FK), created_at
+
+### account_permissions
+id, account_id (FK), user_id (FK), permission (view | edit | send | admin), created_at
+
+### documents
+id, account_id (FK), name, content (text/md), template, updated_at
+
+### categories
+id, account_id (FK), name, description, color, keywords (array), created_at
+
+### email_threads
+id, account_id (FK), gmail_thread_id, subject, participant_emails, message_count, last_message_at, created_at
+
+### emails
+id, thread_id (FK), account_id (FK), gmail_message_id, direction, from_email, from_name, to_email, subject, body, received_at, category_id (FK), created_at
+
+### drafts
+id, thread_id (FK), content, version, status (pending | ready | sent | skipped), created_by (FK), sent_by (FK), sent_at, created_at, updated_at
+
+## Implementation Status
+
+### ✅ Completed
+
+- 3-Column 레이아웃 (Sidebar + Mail List + Detail Panel)
+- 서비스별 메일 필터링
+- 메일 스레드 표시
+- AI 초안 자동 생성 (claude-sonnet-4-5-20250514)
+- TipTap 리치 텍스트 에디터 (Bold, Italic, Underline, Strike, Link, List)
+- 자동저장 (debounce 500ms)
+- Talk to Draft (자연어 수정 요청 + 퀵 프롬프트)
+- 비한국어 메일 번역 패널
+- 카테고리 자동 라벨링
+- 발송 확인 팝업 (Don't show again 옵션)
+- 일괄 발송 팝업
+- 체크박스 선택 + 하단 액션바 (Send All / Archive)
+
+### 🚧 In Progress
+
+- Settings Modal (서비스 관리, 문서/서명, 카테고리, 권한)
+
+### 📋 Planned
+
+- Gmail API 연동 (OAuth 2.0)
+- Supabase DB 연동
+- 사용자 인증 (NextAuth + Google OAuth)
+- Organization / 권한 관리
+- 메일 자동 수신 (Vercel Cron, 5분 폴링)
+- Gmail 발송 연동
+- Slack 알림 연동
+- 답변 품질 피드백 (👍👎)
+- 메일 우선순위 자동 태깅
+- 통계 대시보드
+- 다국어 답변 지원
+- 첨부파일 처리

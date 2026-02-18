@@ -1,26 +1,110 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --bg-app: #efede8;
+  --bg-sidebar: #e5e2dc;
+  --bg-panel: #ffffff;
+  --border: #ddd9d3;
+  --text-primary: #1c1c1c;
+  --text-muted: #706e6a;
+  --accent: #3b5bdb;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+* {
+  box-sizing: border-box;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html,
+body {
+  height: 100%;
+  overflow: hidden;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui,
+    sans-serif;
+  background: var(--bg-app);
+  color: var(--text-primary);
+  font-size: 15px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ── Tiptap / ProseMirror ─────────────────────────────────────────────────── */
+.ProseMirror {
+  outline: none;
+  min-height: 120px;
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--text-primary);
+}
+
+.ProseMirror p {
+  margin: 0 0 0.4em 0;
+}
+
+.ProseMirror p:last-child {
+  margin-bottom: 0;
+}
+
+.ProseMirror ul,
+.ProseMirror ol {
+  padding-left: 1.25rem;
+  margin: 0 0 0.5em 0;
+}
+
+.ProseMirror li {
+  margin: 0.15em 0;
+}
+
+.ProseMirror strong {
+  font-weight: 600;
+}
+
+.ProseMirror a {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+.ProseMirror a:hover {
+  opacity: 0.8;
+}
+
+.ProseMirror hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 0.75em 0;
+}
+
+.ProseMirror blockquote {
+  border-left: 3px solid var(--border);
+  padding-left: 0.75rem;
+  color: var(--text-muted);
+  margin: 0 0 0.5em 0;
+}
+
+/* Signature area — visually distinct */
+.signature-zone {
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #ccc9c4;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #b5b1ac;
 }
