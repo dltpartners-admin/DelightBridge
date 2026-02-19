@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { ChevronDown, Send, Archive, X } from 'lucide-react';
 import type { Service, EmailThread, FilterType } from '@/lib/types';
-import { cn, formatTime, getInitials, getAvatarColor } from '@/lib/utils';
+import { cn, formatTime, getInitials, getAvatarColor, stripHtml } from '@/lib/utils';
 
 interface MailListProps {
   service: Service;
@@ -306,6 +306,22 @@ function ThreadItem({
           >
             {thread.subject}
           </div>
+
+          {/* Body preview */}
+          {thread.messages.length > 0 && (() => {
+            const lastMsg = thread.messages[thread.messages.length - 1];
+            const preview = stripHtml(lastMsg.body);
+            return preview ? (
+              <div
+                className={cn(
+                  'mb-1 truncate text-[11px]',
+                  isSelected ? 'text-white/60' : 'text-[#a09d98]'
+                )}
+              >
+                {preview}
+              </div>
+            ) : null;
+          })()}
 
           {/* Preview + tags */}
           <div className="flex flex-wrap items-center gap-1">
