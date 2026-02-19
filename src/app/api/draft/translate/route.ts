@@ -13,8 +13,8 @@ export async function POST(req: NextRequest) {
 ## Original Draft
 ${draftText}
 
-Return ONLY valid JSON:
-{ "translation": "<p>Korean translation here...</p>" }`;
+Return ONLY valid JSON with the translation as a plain text string (no HTML tags):
+{ "translation": "Korean translation here..." }`;
 
     const response = await client.messages.create({
       model: 'claude-sonnet-4-6',
@@ -30,6 +30,7 @@ Return ONLY valid JSON:
       jsonText = jsonText.replace(/^```[a-z]*\n?/, '').replace(/\n?```$/, '');
     }
     const result = JSON.parse(jsonText);
+    result.translation = `<p>${result.translation}</p>`;
 
     return NextResponse.json(result);
   } catch (error) {
