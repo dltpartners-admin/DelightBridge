@@ -1,12 +1,11 @@
 import NextAuth from 'next-auth';
 import Google from 'next-auth/providers/google';
 import { db } from '@/lib/db';
-import { users } from '@/lib/db/schema';
+import { users, workspaceMembers } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { authConfig } from './auth.config';
 
 const ADMIN_EMAILS = (process.env.ADMIN_EMAILS ?? '').split(',').map((e) => e.trim()).filter(Boolean);
-const ALLOWED_DOMAIN = process.env.ALLOWED_DOMAIN ?? 'delightroom.com';
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   ...authConfig,
@@ -22,13 +21,19 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       const email = profile?.email;
       if (!email) return false;
 
+      const [member] = await db
+        .select({ permission: workspaceMembers.permission })
+        .from(workspaceMembers)
+        .where(eq(workspaceMembers.email, email));
+
       const isAllowed =
         ADMIN_EMAILS.includes(email) ||
-        email.endsWith(`@${ALLOWED_DOMAIN}`);
+        !!member;
 
       if (!isAllowed) return '/login?error=unauthorized';
 
       const isAdmin = ADMIN_EMAILS.includes(email);
+      const permission = isAdmin ? 'admin' : (member?.permission ?? 'view');
       const id = `user-${profile.sub}`;
 
       await db
@@ -39,13 +44,14 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           email,
           name: (profile.name as string) ?? email,
           picture: (profile.picture as string) ?? null,
-          permission: isAdmin ? 'admin' : 'view',
+          permission,
         })
         .onConflictDoUpdate({
           target: users.googleId,
           set: {
             name: (profile.name as string) ?? email,
             picture: (profile.picture as string) ?? null,
+            permission,
           },
         });
 

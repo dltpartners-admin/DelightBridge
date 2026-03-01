@@ -1,0 +1,73 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { desc, inArray } from 'drizzle-orm';
+import { db } from '@/lib/db';
+import { users, workspaceMembers } from '@/lib/db/schema';
+import { requireAdminSession } from '@/lib/session';
+
+const ADMIN_EMAILS = (process.env.ADMIN_EMAILS ?? '')
+  .split(',')
+  .map((email) => email.trim())
+  .filter(Boolean);
+
+export async function GET() {
+  const { unauthorized, forbidden } = await requireAdminSession();
+  if (unauthorized) return unauthorized;
+  if (forbidden) return forbidden;
+
+  const members = await db
+    .select()
+    .from(workspaceMembers)
+    .orderBy(desc(workspaceMembers.createdAt));
+
+  const usersByEmail = members.length
+    ? await db.select().from(users).where(inArray(users.email, members.map((m) => m.email)))
+    : [];
+
+  const userMap = Object.fromEntries(usersByEmail.map((u) => [u.email, u]));
+
+  const rows = members.map((member) => {
+    const user = userMap[member.email];
+    return {
+      email: member.email,
+      permission: member.permission,
+      name: user?.name ?? member.email.split('@')[0],
+      picture: user?.picture ?? null,
+      hasLoggedIn: !!user,
+      isAdminByEnv: ADMIN_EMAILS.includes(member.email),
+    };
+  });
+
+  return NextResponse.json(rows);
+}
+
+export async function POST(req: NextRequest) {
+  const { unauthorized, forbidden } = await requireAdminSession();
+  if (unauthorized) return unauthorized;
+  if (forbidden) return forbidden;
+
+  const { email, permission } = await req.json();
+
+  if (!email || typeof email !== 'string') {
+    return NextResponse.json({ error: 'email is required' }, { status: 400 });
+  }
+
+  if (!['view', 'edit', 'send', 'admin'].includes(permission)) {
+    return NextResponse.json({ error: 'invalid permission' }, { status: 400 });
+  }
+
+  const normalizedEmail = email.trim().toLowerCase();
+
+  const [member] = await db
+    .insert(workspaceMembers)
+    .values({
+      email: normalizedEmail,
+      permission,
+    })
+    .onConflictDoUpdate({
+      target: workspaceMembers.email,
+      set: { permission },
+    })
+    .returning();
+
+  return NextResponse.json(member);
+}

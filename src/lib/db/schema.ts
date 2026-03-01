@@ -22,6 +22,12 @@ export const users = pgTable('users', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
+export const workspaceMembers = pgTable('workspace_members', {
+  email: text('email').primaryKey(),
+  permission: permissionEnum('permission').notNull().default('view'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
 // ── Gmail accounts (= 서비스) ─────────────────────────────────────────────
 export const gmailAccounts = pgTable('gmail_accounts', {
   id: text('id').primaryKey(),

@@ -21,22 +21,14 @@ const TABS: Tab[] = [
   { id: 'permissions', label: '권한 관리', icon: <Users className="h-4 w-4" /> },
 ];
 
-// Mock members — fields align with User type + Google OAuth userinfo
 interface Member {
-  id: string;           // internal UUID
-  googleId: string;     // Google OAuth `sub`
-  email: string;        // Google `email`
-  name: string;         // Google `name`
-  picture?: string;     // Google `picture`
+  email: string;
+  name: string;
+  picture?: string | null;
   permission: PermissionLevel;
+  hasLoggedIn: boolean;
+  isAdminByEnv: boolean;
 }
-
-const INITIAL_MEMBERS: Member[] = [
-  { id: 'u1', googleId: '100000000000000001', email: 'admin@delightroom.com', name: 'Admin', picture: undefined, permission: 'admin' },
-  { id: 'u2', googleId: '100000000000000002', email: 'peter@delightroom.com', name: 'Peter Choi', picture: undefined, permission: 'send' },
-  { id: 'u3', googleId: '100000000000000003', email: 'sasha@delightroom.com', name: 'Sasha Kim', picture: undefined, permission: 'send' },
-  { id: 'u4', googleId: '100000000000000004', email: 'intern@delightroom.com', name: 'Intern', picture: undefined, permission: 'view' },
-];
 
 const PERMISSION_OPTIONS: PermissionLevel[] = ['admin', 'send', 'edit', 'view'];
 
@@ -710,15 +702,66 @@ function PermissionsTab({
   onSelectService: (id: string) => void;
 }) {
   const service = services.find((s) => s.id === selectedServiceId);
-  const [members, setMembers] = useState<Member[]>(INITIAL_MEMBERS);
+  const [members, setMembers] = useState<Member[]>([]);
+  const [loadingMembers, setLoadingMembers] = useState(true);
+  const [newEmail, setNewEmail] = useState('');
+  const [newPermission, setNewPermission] = useState<PermissionLevel>('view');
+  const [addingMember, setAddingMember] = useState(false);
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
 
-  const handlePermissionChange = (email: string, permission: PermissionLevel) => {
-    setMembers((prev) =>
-      prev.map((m) => (m.email === email ? { ...m, permission } : m))
-    );
+  const loadMembers = useCallback(async () => {
+    try {
+      setLoadingMembers(true);
+      const res = await fetch('/api/members');
+      if (!res.ok) throw new Error('Failed to load members');
+      const data = (await res.json()) as Member[];
+      setMembers(data);
+    } finally {
+      setLoadingMembers(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadMembers();
+  }, [loadMembers]);
+
+  const handlePermissionChange = useCallback(async (email: string, permission: PermissionLevel) => {
+    await fetch(`/api/members/${encodeURIComponent(email)}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ permission }),
+    });
+    setMembers((prev) => prev.map((m) => (m.email === email ? { ...m, permission } : m)));
     setOpenDropdown(null);
-  };
+  }, []);
+
+  const handleAddMember = useCallback(async () => {
+    const email = newEmail.trim().toLowerCase();
+    if (!email) return;
+
+    setAddingMember(true);
+    try {
+      const res = await fetch('/api/members', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, permission: newPermission }),
+      });
+      if (!res.ok) throw new Error('Failed to add member');
+
+      setNewEmail('');
+      setNewPermission('view');
+      await loadMembers();
+    } finally {
+      setAddingMember(false);
+    }
+  }, [loadMembers, newEmail, newPermission]);
+
+  const handleRemoveMember = useCallback(async (email: string) => {
+    await fetch(`/api/members/${encodeURIComponent(email)}`, {
+      method: 'DELETE',
+    });
+    setMembers((prev) => prev.filter((m) => m.email !== email));
+  }, []);
 
   return (
     <div>
@@ -730,17 +773,43 @@ function PermissionsTab({
 
       <div className="mb-3 flex items-center justify-between">
         <p className="text-[11px] font-semibold uppercase tracking-wide text-[#a09d98]">멤버</p>
-        <button
-          className="flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-[11px] font-medium text-[#706e6a] hover:bg-[#f0eee9] transition-colors opacity-50 cursor-not-allowed"
-          style={{ borderColor: 'var(--border)' }}
-          disabled
-        >
-          <Plus className="h-3.5 w-3.5" />
-          멤버 추가
-        </button>
+        <div className="flex items-center gap-2">
+          <input
+            value={newEmail}
+            onChange={(e) => setNewEmail(e.target.value)}
+            placeholder="email@example.com"
+            className="w-[200px] rounded-lg border px-3 py-1.5 text-[11px] text-[#1c1c1c]"
+            style={{ borderColor: 'var(--border)' }}
+          />
+          <select
+            value={newPermission}
+            onChange={(e) => setNewPermission(e.target.value as PermissionLevel)}
+            className="rounded-lg border px-2.5 py-1.5 text-[11px] text-[#1c1c1c]"
+            style={{ borderColor: 'var(--border)' }}
+          >
+            {PERMISSION_OPTIONS.map((opt) => (
+              <option key={opt} value={opt}>
+                {PERMISSION_LABELS[opt].label}
+              </option>
+            ))}
+          </select>
+          <button
+            onClick={() => void handleAddMember()}
+            className="flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-[11px] font-medium text-[#706e6a] transition-colors hover:bg-[#f0eee9]"
+            style={{ borderColor: 'var(--border)' }}
+            disabled={addingMember}
+          >
+            <Plus className="h-3.5 w-3.5" />
+            멤버 추가
+          </button>
+        </div>
       </div>
 
       <div className="space-y-2">
+        {loadingMembers && (
+          <p className="py-4 text-[12px] text-[#a09d98]">멤버 목록 불러오는 중…</p>
+        )}
+
         {members.map((member) => {
           const perm = PERMISSION_LABELS[member.permission];
           const isOpen = openDropdown === member.email;
@@ -755,7 +824,10 @@ function PermissionsTab({
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-[13px] font-medium text-[#1c1c1c]">{member.name}</p>
-                <p className="text-[11px] text-[#a09d98]">{member.email}</p>
+                <p className="text-[11px] text-[#a09d98]">
+                  {member.email}
+                  {!member.hasLoggedIn && ' · 아직 로그인 안함'}
+                </p>
               </div>
               <div className="relative">
                 <button
@@ -773,7 +845,7 @@ function PermissionsTab({
                       return (
                         <button
                           key={opt}
-                          onClick={() => handlePermissionChange(member.email, opt)}
+                          onClick={() => void handlePermissionChange(member.email, opt)}
                           className={cn(
                             'flex w-full items-center gap-2 px-3 py-2 text-left text-[12px] transition-colors hover:bg-[#f5f3ef]',
                             member.permission === opt && 'bg-[#f5f3ef]'
@@ -792,9 +864,22 @@ function PermissionsTab({
                   </div>
                 )}
               </div>
+              {!member.isAdminByEnv && (
+                <button
+                  onClick={() => void handleRemoveMember(member.email)}
+                  className="ml-2 flex items-center justify-center rounded-lg p-1.5 text-[#a09d98] transition-colors hover:bg-[#fee2e2] hover:text-[#b91c1c]"
+                  title="멤버 제거"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              )}
             </div>
           );
         })}
+
+        {!loadingMembers && members.length === 0 && (
+          <p className="py-4 text-[12px] text-[#a09d98]">등록된 멤버가 없습니다.</p>
+        )}
       </div>
 
       <div className="mt-6 rounded-lg bg-[#fafaf9] px-4 py-3" style={{ borderColor: 'var(--border)' }}>
