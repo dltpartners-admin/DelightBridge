@@ -403,16 +403,44 @@ export function MainLayout() {
     [threads, updateThread]
   );
 
+  const sendThreads = useCallback(
+    async (threadIds: string[]) => {
+      const result = await Promise.all(
+        threadIds.map(async (tid) => {
+          const res = await fetch(`/api/threads/${tid}/send`, { method: 'POST' });
+          return { tid, ok: res.ok };
+        })
+      );
+
+      const sentIds = result.filter((r) => r.ok).map((r) => r.tid);
+      if (sentIds.length > 0) {
+        setThreads((prev) =>
+          prev.map((t) =>
+            sentIds.includes(t.id)
+              ? { ...t, status: 'sent' as const }
+              : t
+          )
+        );
+        setSelectedThreadId((prev) => (prev && sentIds.includes(prev) ? null : prev));
+      }
+
+      const failedCount = result.length - sentIds.length;
+      if (failedCount > 0) {
+        console.error(`Failed to send ${failedCount} thread(s)`);
+      }
+    },
+    []
+  );
+
   const handleSend = useCallback(
     (threadId: string) => {
       if (dontShowSendConfirmRef.current) {
-        updateThread(threadId, { status: 'sent' });
-        if (selectedThreadId === threadId) setSelectedThreadId(null);
+        void sendThreads([threadId]);
       } else {
         setSendModal({ open: true, threadId });
       }
     },
-    [selectedThreadId, updateThread]
+    [sendThreads]
   );
 
   const confirmSend = useCallback(
@@ -420,22 +448,11 @@ export function MainLayout() {
       dontShowSendConfirmRef.current = dontShow;
       if (sendModal.threadId) {
         const tid = sendModal.threadId;
-        updateThread(tid, { status: 'sent' });
-        if (selectedThreadId === tid) setSelectedThreadId(null);
-        fetch(`/api/threads/${tid}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ status: 'sent' }),
-        });
-        fetch(`/api/drafts/${tid}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ status: 'sent' }),
-        });
+        void sendThreads([tid]);
       }
       setSendModal({ open: false, threadId: null });
     },
-    [sendModal.threadId, selectedThreadId, updateThread]
+    [sendModal.threadId, sendThreads]
   );
 
   const handleBulkSend = useCallback(() => {
@@ -443,25 +460,10 @@ export function MainLayout() {
   }, []);
 
   const confirmBulkSend = useCallback(() => {
-    setThreads((prev) =>
-      prev.map((t) => (checkedIds.has(t.id) ? { ...t, status: 'sent' as const } : t))
-    );
-    if (selectedThreadId && checkedIds.has(selectedThreadId)) setSelectedThreadId(null);
-    checkedIds.forEach((tid) => {
-      fetch(`/api/threads/${tid}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'sent' }),
-      });
-      fetch(`/api/drafts/${tid}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'sent' }),
-      });
-    });
+    void sendThreads(Array.from(checkedIds));
     setCheckedIds(new Set());
     setBulkSendModal(false);
-  }, [checkedIds, selectedThreadId]);
+  }, [checkedIds, sendThreads]);
 
   const handleArchive = useCallback(
     (ids: Set<string>) => {
