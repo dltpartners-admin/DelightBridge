@@ -407,51 +407,32 @@ export async function syncAllConnectedAccountsIncremental() {
     .select({ id: gmailAccounts.id, refreshToken: gmailAccounts.refreshToken })
     .from(gmailAccounts);
 
-  const connected = accounts.filter((account) => !!account.refreshToken);
-  const results: Array<{
-    accountId: string;
-    ok: boolean;
-    syncedThreads?: number;
-    upsertedMessages?: number;
-    error?: string;
-  }> = [];
+  const connectedIds = accounts
+    .filter((account) => !!account.refreshToken)
+    .map((account) => account.id);
 
-  for (const account of connected) {
-    try {
-      const result = await syncAccountIncremental(account.id);
-      results.push({
-        accountId: account.id,
-        ok: true,
-        syncedThreads: result.syncedThreads,
-        upsertedMessages: result.upsertedMessages,
-      });
-    } catch (error) {
-      results.push({
-        accountId: account.id,
-        ok: false,
-        error: error instanceof Error ? error.message : 'unknown error',
-      });
-    }
-  }
-
-  return {
-    total: connected.length,
-    success: results.filter((result) => result.ok).length,
-    failed: results.filter((result) => !result.ok).length,
-    results,
-  };
+  return syncAccountsByIdsIncremental(connectedIds);
 }
 
-export async function syncAccountsByIdsIncremental(accountIds: string[]) {
+type SyncOptions = {
+  failureBaseDelayMs?: number;
+  failureMaxDelayMs?: number;
+};
+
+export async function syncAccountsByIdsIncremental(accountIds: string[], options?: SyncOptions) {
   if (accountIds.length === 0) {
     return { total: 0, success: 0, failed: 0, results: [] as Array<{ accountId: string; ok: boolean; error?: string }> };
   }
+
+  const failureBaseDelayMs = Math.max(0, options?.failureBaseDelayMs ?? 400);
+  const failureMaxDelayMs = Math.max(failureBaseDelayMs, options?.failureMaxDelayMs ?? 3000);
 
   const accounts = await db
     .select({ id: gmailAccounts.id, refreshToken: gmailAccounts.refreshToken })
     .from(gmailAccounts)
     .where(inArray(gmailAccounts.id, accountIds));
 
+  const accountsById = new Map(accounts.map((account) => [account.id, account]));
   const results: Array<{
     accountId: string;
     ok: boolean;
@@ -459,10 +440,18 @@ export async function syncAccountsByIdsIncremental(accountIds: string[]) {
     upsertedMessages?: number;
     error?: string;
   }> = [];
+  let consecutiveFailures = 0;
 
-  for (const account of accounts) {
+  for (const accountId of accountIds) {
+    const account = accountsById.get(accountId);
+    if (!account) {
+      results.push({ accountId, ok: false, error: 'service not found' });
+      consecutiveFailures += 1;
+      continue;
+    }
     if (!account.refreshToken) {
       results.push({ accountId: account.id, ok: false, error: 'service gmail not connected' });
+      consecutiveFailures += 1;
       continue;
     }
 
@@ -474,12 +463,22 @@ export async function syncAccountsByIdsIncremental(accountIds: string[]) {
         syncedThreads: result.syncedThreads,
         upsertedMessages: result.upsertedMessages,
       });
+      consecutiveFailures = 0;
     } catch (error) {
       results.push({
         accountId: account.id,
         ok: false,
         error: error instanceof Error ? error.message : 'unknown error',
       });
+
+      consecutiveFailures += 1;
+      if (failureBaseDelayMs > 0) {
+        const backoff = Math.min(
+          failureBaseDelayMs * 2 ** (consecutiveFailures - 1),
+          failureMaxDelayMs
+        );
+        await sleep(backoff);
+      }
     }
   }
 
