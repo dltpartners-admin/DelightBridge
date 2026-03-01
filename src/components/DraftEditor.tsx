@@ -16,6 +16,7 @@ interface DraftEditorProps {
   thread: EmailThread;
   service: Service;
   isGenerating: boolean;
+  isSending: boolean;
   onSave: (content: string) => void;
   onRegenerate: () => void;
   onSend: () => void;
@@ -29,6 +30,7 @@ export function DraftEditor({
   thread,
   service,
   isGenerating,
+  isSending,
   onSave,
   onRegenerate,
   onSend,
@@ -280,10 +282,11 @@ export function DraftEditor({
           <div className="flex-1" />
           <button
             onClick={onSend}
-            className="flex items-center gap-1.5 rounded-lg bg-[#3b5bdb] px-4 py-1.5 text-[13px] font-semibold text-white transition-colors hover:bg-[#3451c7]"
+            disabled={isSending}
+            className="flex items-center gap-1.5 rounded-lg bg-[#3b5bdb] px-4 py-1.5 text-[13px] font-semibold text-white transition-colors hover:bg-[#3451c7] disabled:cursor-not-allowed disabled:opacity-60"
           >
             <Send className="h-3.5 w-3.5" />
-            Send
+            {isSending ? 'Sending…' : 'Send'}
           </button>
         </div>
       </div>

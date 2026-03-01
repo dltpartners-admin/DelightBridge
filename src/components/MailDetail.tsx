@@ -12,6 +12,7 @@ interface MailDetailProps {
   isGenerating: boolean;
   isTalking: boolean;
   isTranslating: boolean;
+  isSending: boolean;
   onSaveDraft: (content: string) => void;
   onRegenerate: () => void;
   onSend: () => void;
@@ -30,6 +31,7 @@ export function MailDetail({
   isGenerating,
   isTalking,
   isTranslating,
+  isSending,
   onSaveDraft,
   onRegenerate,
   onSend,
@@ -106,6 +108,7 @@ export function MailDetail({
             thread={thread}
             service={service}
             isGenerating={isGenerating}
+            isSending={isSending}
             onSave={onSaveDraft}
             onRegenerate={onRegenerate}
             onSend={onSend}

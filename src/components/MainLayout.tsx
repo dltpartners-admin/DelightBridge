@@ -9,6 +9,7 @@ import { MailDetail } from './MailDetail';
 import { SendConfirmModal } from './SendConfirmModal';
 import { BulkSendModal } from './BulkSendModal';
 import { SettingsModal } from './SettingsModal';
+import { stripHtml } from '@/lib/utils';
 
 interface CurrentUser {
   name: string;
@@ -23,6 +24,7 @@ export function MainLayout({ currentUser }: { currentUser: CurrentUser }) {
   const [selectedServiceId, setSelectedServiceId] = useState<string>('');
   const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterType>('inbox');
+  const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
   const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set());
   const [threads, setThreads] = useState<EmailThread[]>([]);
@@ -35,6 +37,7 @@ export function MainLayout({ currentUser }: { currentUser: CurrentUser }) {
     open: false,
     threadId: null,
   });
+  const [sendingIds, setSendingIds] = useState<Set<string>>(new Set());
   const [bulkSendModal, setBulkSendModal] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const dontShowSendConfirmRef = useRef(false);
@@ -156,6 +159,19 @@ export function MainLayout({ currentUser }: { currentUser: CurrentUser }) {
       if (t.serviceId !== selectedServiceId) return false;
       if (filter !== 'all' && t.status !== filter) return false;
       if (categoryFilter && t.categoryId !== categoryFilter) return false;
+      const query = searchQuery.trim().toLowerCase();
+      if (query) {
+        const haystack = [
+          t.subject,
+          t.customerName,
+          t.customerEmail,
+          t.draft,
+          ...t.messages.map((message) => stripHtml(message.body)),
+        ]
+          .join(' ')
+          .toLowerCase();
+        if (!haystack.includes(query)) return false;
+      }
       return true;
     })
     .sort(
@@ -413,31 +429,43 @@ export function MainLayout({ currentUser }: { currentUser: CurrentUser }) {
 
   const sendThreads = useCallback(
     async (threadIds: string[]) => {
-      const result = await Promise.all(
-        threadIds.map(async (tid) => {
-          const res = await fetch(`/api/threads/${tid}/send`, { method: 'POST' });
-          return { tid, ok: res.ok };
-        })
-      );
+      const pending = threadIds.filter((id) => !sendingIds.has(id));
+      if (pending.length === 0) return;
 
-      const sentIds = result.filter((r) => r.ok).map((r) => r.tid);
-      if (sentIds.length > 0) {
-        setThreads((prev) =>
-          prev.map((t) =>
-            sentIds.includes(t.id)
-              ? { ...t, status: 'sent' as const }
-              : t
-          )
+      setSendingIds((prev) => new Set([...prev, ...pending]));
+      try {
+        const result = await Promise.all(
+          pending.map(async (tid) => {
+            const res = await fetch(`/api/threads/${tid}/send`, { method: 'POST' });
+            return { tid, ok: res.ok || res.status === 409 };
+          })
         );
-        setSelectedThreadId((prev) => (prev && sentIds.includes(prev) ? null : prev));
-      }
 
-      const failedCount = result.length - sentIds.length;
-      if (failedCount > 0) {
-        console.error(`Failed to send ${failedCount} thread(s)`);
+        const sentIds = result.filter((r) => r.ok).map((r) => r.tid);
+        if (sentIds.length > 0) {
+          setThreads((prev) =>
+            prev.map((t) =>
+              sentIds.includes(t.id)
+                ? { ...t, status: 'sent' as const }
+                : t
+            )
+          );
+          setSelectedThreadId((prev) => (prev && sentIds.includes(prev) ? null : prev));
+        }
+
+        const failedCount = result.length - sentIds.length;
+        if (failedCount > 0) {
+          console.error(`Failed to send ${failedCount} thread(s)`);
+        }
+      } finally {
+        setSendingIds((prev) => {
+          const next = new Set(prev);
+          pending.forEach((id) => next.delete(id));
+          return next;
+        });
       }
     },
-    []
+    [sendingIds]
   );
 
   const handleSend = useCallback(
@@ -551,6 +579,7 @@ export function MainLayout({ currentUser }: { currentUser: CurrentUser }) {
         service={currentService}
         threads={filteredThreads}
         allThreads={threads}
+        searchQuery={searchQuery}
         selectedThreadId={selectedThreadId}
         filter={filter}
         categoryFilter={categoryFilter}
@@ -559,6 +588,7 @@ export function MainLayout({ currentUser }: { currentUser: CurrentUser }) {
         onToggleCheck={handleToggleCheck}
         onSelectAll={handleSelectAll}
         onFilterChange={setFilter}
+        onSearchQueryChange={setSearchQuery}
         onCategoryFilterChange={setCategoryFilter}
         onBulkSend={handleBulkSend}
         onArchive={handleArchive}
@@ -586,6 +616,7 @@ export function MainLayout({ currentUser }: { currentUser: CurrentUser }) {
             isGenerating={generatingFor === currentThread.id}
             isTalking={talkingFor === currentThread.id}
             isTranslating={translatingFor === currentThread.id}
+            isSending={sendingIds.has(currentThread.id)}
             onSaveDraft={(content) => handleSaveDraft(currentThread.id, content)}
             onRegenerate={() => generateDraft(currentThread.id)}
             onSend={() => handleSend(currentThread.id)}

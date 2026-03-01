@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { ChevronDown, Send, Archive, X } from 'lucide-react';
+import { ChevronDown, Search, Send, Archive, X } from 'lucide-react';
 import type { Service, EmailThread, FilterType } from '@/lib/types';
 import { cn, formatTime, getInitials, getAvatarColor, stripHtml } from '@/lib/utils';
 
@@ -9,6 +9,7 @@ interface MailListProps {
   service: Service;
   threads: EmailThread[];
   allThreads: EmailThread[];
+  searchQuery: string;
   selectedThreadId: string | null;
   filter: FilterType;
   categoryFilter: string | null;
@@ -17,6 +18,7 @@ interface MailListProps {
   onToggleCheck: (id: string) => void;
   onSelectAll: () => void;
   onFilterChange: (f: FilterType) => void;
+  onSearchQueryChange: (query: string) => void;
   onCategoryFilterChange: (cat: string | null) => void;
   onBulkSend: () => void;
   onArchive: (ids: Set<string>) => void;
@@ -25,14 +27,13 @@ interface MailListProps {
 
 const FILTER_OPTIONS: { label: string; value: FilterType }[] = [
   { label: 'Inbox', value: 'inbox' },
-  { label: 'Sent', value: 'sent' },
-  { label: 'Archived', value: 'archived' },
   { label: 'All', value: 'all' },
 ];
 
 export function MailList({
   service,
   threads,
+  searchQuery,
   selectedThreadId,
   filter,
   categoryFilter,
@@ -40,6 +41,7 @@ export function MailList({
   onSelectThread,
   onToggleCheck,
   onFilterChange,
+  onSearchQueryChange,
   onCategoryFilterChange,
   onBulkSend,
   onArchive,
@@ -70,6 +72,16 @@ export function MailList({
             <span className="text-[13px] font-semibold text-[#1c1c1c]">{service.name}</span>
           </div>
           <span className="text-xs text-[#a09d98]">{threads.length}</span>
+        </div>
+
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#a09d98]" />
+          <input
+            value={searchQuery}
+            onChange={(e) => onSearchQueryChange(e.target.value)}
+            placeholder="Search"
+            className="h-8 w-full rounded-lg border border-[#ddd9d3] bg-[#fafaf9] pl-8 pr-3 text-[12px] text-[#1c1c1c] placeholder:text-[#a09d98] focus:border-[#b9b5af] focus:bg-white focus:outline-none"
+          />
         </div>
 
         {/* Filter row */}
