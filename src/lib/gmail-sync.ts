@@ -3,6 +3,7 @@ import { db } from '@/lib/db';
 import { categories, drafts, emailThreads, emails, gmailAccounts } from '@/lib/db/schema';
 import { getAccessToken, refreshAccessToken } from '@/lib/gmail';
 import { generateDraftFromContext } from '@/lib/draft-generation';
+import { translateDraftToKorean } from '@/lib/draft-translation';
 
 type GmailHeader = { name?: string; value?: string };
 type GmailPayload = {
@@ -304,6 +305,18 @@ async function syncThread(accountId: string, accountEmail: string, gmailThreadId
           signature: accountForDraft.signature,
         });
 
+        let autoTranslation = '';
+        if ((generated.detectedLanguage ?? '').toLowerCase() !== 'ko') {
+          try {
+            autoTranslation = await translateDraftToKorean(generated.draft);
+          } catch (error) {
+            console.error(
+              `Auto draft translation failed for account ${accountId}, thread ${threadId}:`,
+              error
+            );
+          }
+        }
+
         const now = new Date();
         await db.transaction(async (tx) => {
           await tx
@@ -313,6 +326,7 @@ async function syncThread(accountId: string, accountEmail: string, gmailThreadId
               threadId,
               subject: `Re: ${latest.subject || '(no subject)'}`,
               content: generated.draft,
+              translation: autoTranslation,
               status: 'ready',
               updatedAt: now,
             })
@@ -321,6 +335,7 @@ async function syncThread(accountId: string, accountEmail: string, gmailThreadId
               set: {
                 subject: `Re: ${latest.subject || '(no subject)'}`,
                 content: generated.draft,
+                translation: autoTranslation,
                 status: 'ready',
                 updatedAt: now,
               },

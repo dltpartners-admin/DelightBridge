@@ -1,8 +1,6 @@
-import Anthropic from '@anthropic-ai/sdk';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireSession } from '@/lib/session';
-
-const client = new Anthropic();
+import { translateDraftToKorean } from '@/lib/draft-translation';
 
 export async function POST(req: NextRequest) {
   try {
@@ -10,33 +8,9 @@ export async function POST(req: NextRequest) {
     if (unauthorized) return unauthorized;
 
     const { draft } = await req.json();
-    const draftText = draft.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+    const translation = await translateDraftToKorean(draft);
 
-    const prompt = `Translate the following customer support email draft into Korean. Preserve the professional and empathetic tone.
-
-## Original Draft
-${draftText}
-
-Return ONLY valid JSON with the translation as a plain text string (no HTML tags):
-{ "translation": "Korean translation here..." }`;
-
-    const response = await client.messages.create({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 1024,
-      messages: [{ role: 'user', content: prompt }],
-    });
-
-    const content = response.content[0];
-    if (content.type !== 'text') throw new Error('Unexpected response type');
-
-    let jsonText = content.text.trim();
-    if (jsonText.startsWith('```')) {
-      jsonText = jsonText.replace(/^```[a-z]*\n?/, '').replace(/\n?```$/, '');
-    }
-    const result = JSON.parse(jsonText);
-    result.translation = `<p>${result.translation}</p>`;
-
-    return NextResponse.json(result);
+    return NextResponse.json({ translation });
   } catch (error) {
     console.error('Translation error:', error);
     return NextResponse.json({ error: 'Failed to translate' }, { status: 500 });
