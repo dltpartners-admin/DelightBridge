@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireSession } from '@/lib/session';
+import { requireAdminSession } from '@/lib/session';
 
 function toBase64Url(input: string) {
   return Buffer.from(input, 'utf8').toString('base64url');
 }
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { unauthorized } = await requireSession();
+  const { unauthorized, forbidden } = await requireAdminSession();
   if (unauthorized) return unauthorized;
+  if (forbidden) return forbidden;
 
   const { id: serviceId } = await params;
   const clientId = process.env.GOOGLE_CLIENT_ID;

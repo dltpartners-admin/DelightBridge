@@ -11,6 +11,7 @@ import { BulkSendModal } from './BulkSendModal';
 import { SettingsModal } from './SettingsModal';
 
 export function MainLayout() {
+  const [oauthNotice, setOauthNotice] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [services, setServices] = useState<Service[]>([]);
   const [selectedServiceId, setSelectedServiceId] = useState<string>('');
   const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null);
@@ -32,6 +33,36 @@ export function MainLayout() {
   const dontShowSendConfirmRef = useRef(false);
 
   // ── Initial data load ─────────────────────────────────────────────────────
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const oauth = params.get('oauth');
+    const reason = params.get('reason');
+
+    if (oauth === 'connected') {
+      setOauthNotice({ type: 'success', text: 'Google 계정 연결이 완료되었습니다.' });
+    }
+
+    if (oauth === 'error') {
+      const reasonMessage: Record<string, string> = {
+        connected_email_mismatch: '선택한 Google 계정 이메일이 서비스 이메일과 다릅니다.',
+        state_mismatch: '연결 세션이 만료되었거나 유효하지 않습니다. 다시 시도해 주세요.',
+        missing_refresh_token: 'Google에서 refresh token을 받지 못했습니다. 다시 연결해 주세요.',
+      };
+      setOauthNotice({
+        type: 'error',
+        text: reasonMessage[reason ?? ''] ?? 'Google 계정 연결에 실패했습니다.',
+      });
+    }
+
+    if (oauth) {
+      params.delete('oauth');
+      params.delete('reason');
+      const search = params.toString();
+      const nextUrl = `${window.location.pathname}${search ? `?${search}` : ''}`;
+      window.history.replaceState({}, '', nextUrl);
+    }
+  }, []);
+
   useEffect(() => {
     fetch('/api/services')
       .then((r) => r.json())
@@ -463,6 +494,20 @@ export function MainLayout() {
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-[#efede8]">
+      {oauthNotice && (
+        <div className="pointer-events-none fixed left-1/2 top-4 z-50 -translate-x-1/2">
+          <div
+            className="rounded-lg px-4 py-2 text-[12px] font-medium shadow-md"
+            style={{
+              backgroundColor: oauthNotice.type === 'success' ? '#dcfce7' : '#fee2e2',
+              color: oauthNotice.type === 'success' ? '#166534' : '#991b1b',
+            }}
+          >
+            {oauthNotice.text}
+          </div>
+        </div>
+      )}
+
       {/* Sidebar */}
       <Sidebar
         services={services}

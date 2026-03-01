@@ -2,10 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { eq } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { gmailAccounts } from '@/lib/db/schema';
-import { requireSession } from '@/lib/session';
+import { requireAdminSession } from '@/lib/session';
 
 function fromBase64Url(input: string) {
   return Buffer.from(input, 'base64url').toString('utf8');
+}
+
+function normalizeEmail(email: string) {
+  return email.trim().toLowerCase();
 }
 
 function buildAppRedirect(req: NextRequest, status: 'connected' | 'error', reason?: string) {
@@ -30,8 +34,9 @@ function redirectWithCleanup(req: NextRequest, status: 'connected' | 'error', re
 }
 
 export async function GET(req: NextRequest) {
-  const { unauthorized } = await requireSession();
+  const { unauthorized, forbidden } = await requireAdminSession();
   if (unauthorized) return unauthorized;
+  if (forbidden) return forbidden;
 
   const error = req.nextUrl.searchParams.get('error');
   const code = req.nextUrl.searchParams.get('code');
@@ -58,6 +63,19 @@ export async function GET(req: NextRequest) {
 
   if (!serviceId) {
     return redirectWithCleanup(req, 'error', 'missing_service');
+  }
+
+  const [account] = await db
+    .select({
+      id: gmailAccounts.id,
+      email: gmailAccounts.email,
+      refreshToken: gmailAccounts.refreshToken,
+    })
+    .from(gmailAccounts)
+    .where(eq(gmailAccounts.id, serviceId));
+
+  if (!account) {
+    return redirectWithCleanup(req, 'error', 'service_not_found');
   }
 
   const redirectUri = `${req.nextUrl.origin}/api/services/oauth/callback`;
@@ -90,10 +108,23 @@ export async function GET(req: NextRequest) {
     return redirectWithCleanup(req, 'error', 'missing_access_token');
   }
 
-  const [account] = await db
-    .select({ refreshToken: gmailAccounts.refreshToken })
-    .from(gmailAccounts)
-    .where(eq(gmailAccounts.id, serviceId));
+  const profileRes = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/profile', {
+    headers: { Authorization: `Bearer ${token.access_token}` },
+  });
+
+  if (!profileRes.ok) {
+    return redirectWithCleanup(req, 'error', 'gmail_profile_failed');
+  }
+
+  const profile = (await profileRes.json()) as { emailAddress?: string };
+  const connectedEmail = profile.emailAddress;
+  if (!connectedEmail) {
+    return redirectWithCleanup(req, 'error', 'missing_connected_email');
+  }
+
+  if (normalizeEmail(connectedEmail) !== normalizeEmail(account.email)) {
+    return redirectWithCleanup(req, 'error', 'connected_email_mismatch');
+  }
 
   const refreshToken = token.refresh_token ?? account?.refreshToken ?? null;
   if (!refreshToken) {
