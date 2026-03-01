@@ -293,12 +293,18 @@ export function MainLayout({ currentUser }: { currentUser: CurrentUser }) {
     async (threadId: string) => {
       const thread = threads.find((t) => t.id === threadId);
       if (!thread || !thread.draft) return;
+      const service = services.find((s) => s.id === thread.serviceId);
       setTranslatingFor(threadId);
       try {
         const res = await fetch('/api/draft/translate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ draft: thread.draft }),
+          body: JSON.stringify({
+            draft: thread.draft,
+            referenceDocument: service?.document ?? '',
+            toneGuide: service?.document ?? '',
+            messages: thread.messages,
+          }),
         });
         if (!res.ok) throw new Error('Failed');
         const { translation } = await res.json();
@@ -314,7 +320,7 @@ export function MainLayout({ currentUser }: { currentUser: CurrentUser }) {
         setTranslatingFor(null);
       }
     },
-    [threads, updateThread]
+    [threads, services, updateThread]
   );
 
   const ensureMessageTranslation = useCallback(

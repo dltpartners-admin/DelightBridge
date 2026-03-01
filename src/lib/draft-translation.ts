@@ -11,13 +11,48 @@ function parseJsonText(content: string) {
   return JSON.parse(jsonText) as { translation: string };
 }
 
-export async function translateDraftToKorean(draftHtml: string) {
+type DraftTranslationOptions = {
+  referenceDocument?: string;
+  toneGuide?: string;
+  threadMessages?: Array<{
+    direction: 'inbound' | 'outbound';
+    fromName: string;
+    timestamp: string;
+    body: string;
+  }>;
+};
+
+export async function translateDraftToKorean(
+  draftHtml: string,
+  options?: DraftTranslationOptions
+) {
   const draftText = stripHtml(draftHtml);
   if (!draftText || isKorean(draftText)) {
     return '';
   }
 
-  const prompt = `Translate the following customer support email draft into Korean. Preserve the professional and empathetic tone.
+  const referenceDocument = options?.referenceDocument?.trim() ?? '';
+  const toneGuide = options?.toneGuide?.trim() ?? '';
+  const threadMessages = options?.threadMessages ?? [];
+
+  const threadContext = threadMessages
+    .map(
+      (m) =>
+        `[${m.direction === 'inbound' ? 'Customer' : 'Support'}] ${m.fromName} — ${new Date(m.timestamp).toLocaleString('en-US')}\n${stripHtml(m.body)}`
+    )
+    .join('\n\n---\n\n');
+
+  const guidanceSection =
+    referenceDocument || toneGuide
+      ? `\n## Project Reference\n${referenceDocument || '(none)'}\n\n## Tone Guide\n${toneGuide || 'Follow the style implied by the project reference document.'}\n\n`
+      : '';
+
+  const prompt = `Translate the following customer support email draft into Korean.
+Preserve the professional and empathetic tone, and align wording with the project reference/tone guide if provided.
+
+${guidanceSection}
+
+${threadContext ? `## Full Thread Context\n${threadContext}\n\n` : ''}
 
 ## Original Draft
 ${draftText}

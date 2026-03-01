@@ -7,8 +7,12 @@ export async function POST(req: NextRequest) {
     const { unauthorized } = await requireSession();
     if (unauthorized) return unauthorized;
 
-    const { draft } = await req.json();
-    const translation = await translateDraftToKorean(draft);
+    const { draft, referenceDocument, toneGuide, messages } = await req.json();
+    const translation = await translateDraftToKorean(draft, {
+      referenceDocument,
+      toneGuide,
+      threadMessages: messages,
+    });
 
     return NextResponse.json({ translation });
   } catch (error) {

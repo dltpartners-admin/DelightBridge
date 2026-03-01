@@ -308,7 +308,16 @@ async function syncThread(accountId: string, accountEmail: string, gmailThreadId
         let autoTranslation = '';
         if ((generated.detectedLanguage ?? '').toLowerCase() !== 'ko') {
           try {
-            autoTranslation = await translateDraftToKorean(generated.draft);
+            autoTranslation = await translateDraftToKorean(generated.draft, {
+              referenceDocument: accountForDraft.document,
+              toneGuide: accountForDraft.document,
+              threadMessages: parsed.map((message) => ({
+                direction: message.direction,
+                fromName: message.fromName,
+                timestamp: message.sentAt.toISOString(),
+                body: message.body,
+              })),
+            });
           } catch (error) {
             console.error(
               `Auto draft translation failed for account ${accountId}, thread ${threadId}:`,
