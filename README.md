@@ -67,6 +67,7 @@ Open `http://localhost:3000`.
 - Automatic sync: Vercel cron calls `GET /api/cron/sync-gmail` every 5 minutes.
 - Set `CRON_SECRET` in Vercel and send it as `Authorization: Bearer <CRON_SECRET>` (or `x-cron-secret`) when invoking the cron endpoint manually.
 - Recommended rollout: run one full sync right after connecting each service, then rely on incremental cron sync.
+- In `Settings > 서비스 관리`, admins can trigger `지금 동기화` (incremental) or `전체 동기화` (full) and see the latest sync result logs.
 
 ## Commands
 
