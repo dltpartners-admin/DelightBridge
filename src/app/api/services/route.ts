@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { gmailAccounts, categories, emailThreads } from '@/lib/db/schema';
+import { gmailAccounts, categories, emailThreads, workspaceMembers, users } from '@/lib/db/schema';
 import { requireSession } from '@/lib/session';
 import { eq, and, sql } from 'drizzle-orm';
 
@@ -40,8 +40,11 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const { unauthorized } = await requireSession();
+  const { session, unauthorized } = await requireSession();
   if (unauthorized) return unauthorized;
+  if (!session?.user?.email) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
 
   const { id, name, email, color, signature, document } = await req.json();
   const newId = id ?? `service-${Date.now()}`;
@@ -58,6 +61,23 @@ export async function POST(req: NextRequest) {
       document: document ?? '',
     })
     .returning();
+
+  const normalizedCreatorEmail = session.user.email.trim().toLowerCase();
+  await db
+    .insert(workspaceMembers)
+    .values({
+      email: normalizedCreatorEmail,
+      permission: 'admin',
+    })
+    .onConflictDoUpdate({
+      target: workspaceMembers.email,
+      set: { permission: 'admin' },
+    });
+
+  await db
+    .update(users)
+    .set({ permission: 'admin' })
+    .where(eq(users.email, normalizedCreatorEmail));
 
   return NextResponse.json({ ...account, categories: [], unreadCount: 0 });
 }

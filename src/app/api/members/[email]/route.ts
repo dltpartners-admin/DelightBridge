@@ -3,6 +3,9 @@ import { eq } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { workspaceMembers } from '@/lib/db/schema';
 import { requireAdminSession } from '@/lib/session';
+import { getAdminEmails } from '@/lib/admin-emails';
+
+const ADMIN_EMAILS = getAdminEmails();
 
 export async function PATCH(
   req: NextRequest,
@@ -20,6 +23,9 @@ export async function PATCH(
   }
 
   const targetEmail = decodeURIComponent(email).trim().toLowerCase();
+  if (ADMIN_EMAILS.includes(targetEmail) && permission !== 'admin') {
+    return NextResponse.json({ error: 'default admin cannot be downgraded' }, { status: 400 });
+  }
 
   const [member] = await db
     .update(workspaceMembers)
@@ -44,6 +50,9 @@ export async function DELETE(
 
   const { email } = await params;
   const targetEmail = decodeURIComponent(email).trim().toLowerCase();
+  if (ADMIN_EMAILS.includes(targetEmail)) {
+    return NextResponse.json({ error: 'default admin cannot be removed' }, { status: 400 });
+  }
 
   await db
     .delete(workspaceMembers)

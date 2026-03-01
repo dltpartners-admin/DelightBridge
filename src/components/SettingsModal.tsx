@@ -830,12 +830,18 @@ function PermissionsTab({
               </div>
               <div className="relative">
                 <button
-                  onClick={() => setOpenDropdown(isOpen ? null : member.email)}
+                  onClick={() => {
+                    if (member.isAdminByEnv) return;
+                    setOpenDropdown(isOpen ? null : member.email);
+                  }}
                   className="flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[11px] font-medium transition-colors hover:opacity-80"
                   style={{ backgroundColor: perm.color }}
+                  disabled={member.isAdminByEnv}
                 >
                   {perm.label}
-                  <ChevronDown className={cn('h-3 w-3 transition-transform', isOpen && 'rotate-180')} />
+                  {!member.isAdminByEnv && (
+                    <ChevronDown className={cn('h-3 w-3 transition-transform', isOpen && 'rotate-180')} />
+                  )}
                 </button>
                 {isOpen && (
                   <div className="absolute right-0 top-full mt-1 z-20 w-[180px] rounded-lg border bg-white py-1 shadow-lg" style={{ borderColor: 'var(--border)' }}>

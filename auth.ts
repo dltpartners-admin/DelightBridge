@@ -4,8 +4,9 @@ import { db } from '@/lib/db';
 import { users, workspaceMembers } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { authConfig } from './auth.config';
+import { getAdminEmails } from '@/lib/admin-emails';
 
-const ADMIN_EMAILS = (process.env.ADMIN_EMAILS ?? '').split(',').map((e) => e.trim()).filter(Boolean);
+const ADMIN_EMAILS = getAdminEmails();
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   ...authConfig,
@@ -18,8 +19,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   callbacks: {
     ...authConfig.callbacks,
     async signIn({ profile }) {
-      const email = profile?.email;
-      if (!email) return false;
+      const email = profile?.email?.trim().toLowerCase();
+      const googleId = profile?.sub;
+      if (!email || !googleId) return false;
 
       const [member] = await db
         .select({ permission: workspaceMembers.permission })
@@ -34,13 +36,13 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
       const isAdmin = ADMIN_EMAILS.includes(email);
       const permission = isAdmin ? 'admin' : (member?.permission ?? 'view');
-      const id = `user-${profile.sub}`;
+      const id = `user-${googleId}`;
 
       await db
         .insert(users)
         .values({
           id,
-          googleId: profile.sub as string,
+          googleId,
           email,
           name: (profile.name as string) ?? email,
           picture: (profile.picture as string) ?? null,

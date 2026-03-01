@@ -3,11 +3,9 @@ import { desc, inArray } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { users, workspaceMembers } from '@/lib/db/schema';
 import { requireAdminSession } from '@/lib/session';
+import { getAdminEmails } from '@/lib/admin-emails';
 
-const ADMIN_EMAILS = (process.env.ADMIN_EMAILS ?? '')
-  .split(',')
-  .map((email) => email.trim())
-  .filter(Boolean);
+const ADMIN_EMAILS = getAdminEmails();
 
 export async function GET() {
   const { unauthorized, forbidden } = await requireAdminSession();
@@ -70,16 +68,17 @@ export async function POST(req: NextRequest) {
   }
 
   const normalizedEmail = email.trim().toLowerCase();
+  const nextPermission = ADMIN_EMAILS.includes(normalizedEmail) ? 'admin' : permission;
 
   const [member] = await db
     .insert(workspaceMembers)
     .values({
       email: normalizedEmail,
-      permission,
+      permission: nextPermission,
     })
     .onConflictDoUpdate({
       target: workspaceMembers.email,
-      set: { permission },
+      set: { permission: nextPermission },
     })
     .returning();
 
