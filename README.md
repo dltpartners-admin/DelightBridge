@@ -13,6 +13,7 @@ DelightBridge is an internal support workspace for handling multiple Gmail inbox
 - Workspace member allowlist with permissions (View/Edit/Send/Admin)
 - Service onboarding via `서비스 추가 + 연결` (create service and enter Gmail OAuth immediately)
 - Gmail API send endpoint wired to single/bulk send actions (draft attachment send is not yet included)
+- Gmail sync endpoints for full/incremental import + Vercel cron incremental sync
 
 ## Core Concepts
 
@@ -37,6 +38,7 @@ GOOGLE_CLIENT_ID=...
 GOOGLE_CLIENT_SECRET=...
 AUTH_SECRET=...
 ADMIN_EMAILS=peter@delightroom.com
+CRON_SECRET=your-random-secret
 ```
 
 ### 3) Push DB schema
@@ -58,6 +60,12 @@ Open `http://localhost:3000`.
 - Google OAuth redirect URI must include `http://localhost:3000/api/auth/callback/google`.
 - Service Gmail connection flow also uses `http://localhost:3000/api/services/oauth/callback`.
 - To allow a new teammate to sign in, add them in `Settings > 권한 관리` (or keep them in `ADMIN_EMAILS`).
+
+## Gmail Sync Notes
+
+- Manual sync (admin only): `POST /api/services/:id/sync?mode=full` for full import, `POST /api/services/:id/sync` for incremental import.
+- Automatic sync: Vercel cron calls `GET /api/cron/sync-gmail` every 5 minutes.
+- Set `CRON_SECRET` in Vercel and send it as `Authorization: Bearer <CRON_SECRET>` (or `x-cron-secret`) when invoking the cron endpoint manually.
 
 ## Commands
 

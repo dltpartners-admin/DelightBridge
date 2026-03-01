@@ -2,7 +2,7 @@ import { eq } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { gmailAccounts } from '@/lib/db/schema';
 
-async function refreshAccessToken(accountId: string) {
+export async function refreshAccessToken(accountId: string) {
   const [account] = await db
     .select({ refreshToken: gmailAccounts.refreshToken })
     .from(gmailAccounts)
