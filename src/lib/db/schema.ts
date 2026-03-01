@@ -4,6 +4,7 @@ import {
   timestamp,
   boolean,
   pgEnum,
+  index,
 } from 'drizzle-orm/pg-core';
 
 export const threadStatusEnum = pgEnum('thread_status', ['inbox', 'sent', 'archived']);
@@ -65,7 +66,10 @@ export const emailThreads = pgTable('email_threads', {
   isRead: boolean('is_read').notNull().default(false),
   lastMessageAt: timestamp('last_message_at').notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
-});
+}, (table) => ({
+  accountLastMessageIdx: index('email_threads_account_last_message_idx').on(table.accountId, table.lastMessageAt),
+  gmailThreadIdx: index('email_threads_gmail_thread_idx').on(table.gmailThreadId),
+}));
 
 // ── Emails (individual messages) ──────────────────────────────────────────
 export const emails = pgTable('emails', {
@@ -79,7 +83,10 @@ export const emails = pgTable('emails', {
   direction: emailDirectionEnum('direction').notNull(),
   sentAt: timestamp('sent_at').notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
-});
+}, (table) => ({
+  threadSentAtIdx: index('emails_thread_sent_at_idx').on(table.threadId, table.sentAt),
+  gmailMessageIdx: index('emails_gmail_message_idx').on(table.gmailMessageId),
+}));
 
 // ── Drafts ────────────────────────────────────────────────────────────────
 export const drafts = pgTable('drafts', {
