@@ -103,19 +103,42 @@ export async function GET(req: NextRequest) {
     return redirectWithCleanup(req, 'error', 'missing_access_token');
   }
 
+  const profileRes = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/profile', {
+    headers: { Authorization: `Bearer ${token.access_token}` },
+  });
+
+  if (!profileRes.ok) {
+    return redirectWithCleanup(req, 'error', 'gmail_profile_failed');
+  }
+
+  const profile = (await profileRes.json()) as { emailAddress?: string };
+  const connectedEmail = profile.emailAddress?.trim().toLowerCase();
+  if (!connectedEmail) {
+    return redirectWithCleanup(req, 'error', 'missing_connected_email');
+  }
+
   const refreshToken = token.refresh_token ?? account?.refreshToken ?? null;
   if (!refreshToken) {
     return redirectWithCleanup(req, 'error', 'missing_refresh_token');
   }
 
-  const updated = await db
-    .update(gmailAccounts)
-    .set({
-      accessToken: token.access_token,
-      refreshToken,
-    })
-    .where(eq(gmailAccounts.id, serviceId))
-    .returning({ id: gmailAccounts.id });
+  let updated: Array<{ id: string }> = [];
+  try {
+    updated = await db
+      .update(gmailAccounts)
+      .set({
+        email: connectedEmail,
+        accessToken: token.access_token,
+        refreshToken,
+      })
+      .where(eq(gmailAccounts.id, serviceId))
+      .returning({ id: gmailAccounts.id });
+  } catch (error) {
+    if (error instanceof Error && /duplicate key value/i.test(error.message)) {
+      return redirectWithCleanup(req, 'error', 'email_already_connected');
+    }
+    return redirectWithCleanup(req, 'error', 'save_failed');
+  }
 
   if (updated.length === 0) {
     return redirectWithCleanup(req, 'error', 'service_not_found');

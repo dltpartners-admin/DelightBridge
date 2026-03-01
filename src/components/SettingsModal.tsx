@@ -90,20 +90,26 @@ export function SettingsModal({ services, onUpdateServices, onClose }: SettingsM
     const newService: Service = {
       id,
       name: 'New Service',
-      email: 'support@example.com',
+      email: '연결 전',
       color: PRESET_COLORS[services.length % PRESET_COLORS.length],
       categories: [],
       signature: '',
       document: '',
       unreadCount: 0,
     };
-    await fetch('/api/services', {
+    const res = await fetch('/api/services', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(newService),
     });
-    onUpdateServices([...services, newService]);
-    setSelectedServiceId(id);
+    if (!res.ok) return;
+
+    const created = (await res.json()) as Service;
+    const nextServices = [...services, created];
+    onUpdateServices(nextServices);
+    setSelectedServiceId(created.id);
+
+    window.location.href = `/api/services/${created.id}/connect`;
   }, [services, onUpdateServices]);
 
   const removeService = useCallback(
@@ -270,7 +276,7 @@ function ServicesTab({
             className="flex items-center gap-1.5 rounded-lg border border-[#d0cdc8] bg-white px-3 py-1.5 text-[11px] font-semibold text-[#1c1c1c] transition-colors hover:bg-[#f5f3ef]"
           >
             <Plus className="h-3.5 w-3.5" />
-            서비스 추가
+            서비스 추가 + 연결
           </button>
           <button
             onClick={() => selectedService && onConnectGoogle(selectedService.id)}
@@ -319,17 +325,15 @@ function ServiceCard({
 }) {
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(service.name);
-  const [email, setEmail] = useState(service.email);
   const [color, setColor] = useState(service.color);
 
   const handleSave = () => {
-    onUpdate({ name, email, color });
+    onUpdate({ name, color });
     setEditing(false);
   };
 
   const handleCancel = () => {
     setName(service.name);
-    setEmail(service.email);
     setColor(service.color);
     setEditing(false);
   };
@@ -361,14 +365,9 @@ function ServiceCard({
               style={{ borderColor: 'var(--border)' }}
               onClick={(e) => e.stopPropagation()}
             />
-            <input
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="이메일"
-              className="w-full rounded-lg border px-3 py-1.5 text-[13px] text-[#1c1c1c] focus:border-[#3b5bdb] focus:outline-none"
-              style={{ borderColor: 'var(--border)' }}
-              onClick={(e) => e.stopPropagation()}
-            />
+            <p className="text-[11px] text-[#a09d98]">
+              서비스 이메일은 Google 계정 연결 시 자동 설정됩니다.
+            </p>
             <div className="flex items-center gap-1.5">
               {PRESET_COLORS.map((c) => (
                 <button

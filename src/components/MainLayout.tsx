@@ -46,6 +46,10 @@ export function MainLayout() {
       const reasonMessage: Record<string, string> = {
         state_mismatch: '연결 세션이 만료되었거나 유효하지 않습니다. 다시 시도해 주세요.',
         missing_refresh_token: 'Google에서 refresh token을 받지 못했습니다. 다시 연결해 주세요.',
+        gmail_profile_failed: '연결한 Google 계정의 Gmail 정보 조회에 실패했습니다.',
+        missing_connected_email: '연결한 Google 계정 이메일을 확인할 수 없습니다.',
+        email_already_connected: '이미 다른 서비스에서 사용 중인 Gmail 계정입니다.',
+        save_failed: '서비스 계정 저장에 실패했습니다. 다시 시도해 주세요.',
       };
       setOauthNotice({
         type: 'error',
