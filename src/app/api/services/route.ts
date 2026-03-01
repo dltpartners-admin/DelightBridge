@@ -49,13 +49,17 @@ export async function POST(req: NextRequest) {
   const { id, name, email, color, signature, document } = await req.json();
   const newId = id ?? `service-${Date.now()}`;
   const fallbackEmail = `${newId}@pending.local`;
+  const normalizedEmail =
+    typeof email === 'string' && email.includes('@')
+      ? email.trim().toLowerCase()
+      : fallbackEmail;
 
   const [account] = await db
     .insert(gmailAccounts)
     .values({
       id: newId,
       name,
-      email: email ?? fallbackEmail,
+      email: normalizedEmail,
       color: color ?? '#3b5bdb',
       signature: signature ?? '',
       document: document ?? '',

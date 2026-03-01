@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
+import Image from 'next/image';
 import { X, Plus, Trash2, Building2, FileText, Tag, Users, ChevronDown } from 'lucide-react';
 import { cn, getInitials } from '@/lib/utils';
 import type { Service, Category, PermissionLevel } from '@/lib/types';
@@ -106,9 +107,18 @@ export function SettingsModal({ services, currentUser, onUpdateServices, onClose
     const res = await fetch('/api/services', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(newService),
+      body: JSON.stringify({
+        id: newService.id,
+        name: newService.name,
+        color: newService.color,
+        signature: newService.signature,
+        document: newService.document,
+      }),
     });
-    if (!res.ok) return;
+    if (!res.ok) {
+      window.alert('서비스 생성에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+      return;
+    }
 
     const created = (await res.json()) as Service;
     const nextServices = [...services, created];
@@ -163,9 +173,11 @@ export function SettingsModal({ services, currentUser, onUpdateServices, onClose
             <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-[#a09d98]">현재 로그인</p>
             <div className="flex items-center gap-2.5 rounded-lg bg-white px-2.5 py-2">
               {currentUser.picture ? (
-                <img
+                <Image
                   src={currentUser.picture}
                   alt={currentUser.name || currentUser.email}
+                  width={32}
+                  height={32}
                   className="h-8 w-8 rounded-full border border-[#e7e4df] object-cover"
                 />
               ) : (
