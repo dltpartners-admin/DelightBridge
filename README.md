@@ -39,6 +39,7 @@ GOOGLE_CLIENT_SECRET=...
 AUTH_SECRET=...
 ADMIN_EMAILS=peter@delightroom.com
 CRON_SECRET=your-random-secret
+CRON_SYNC_MAX_ACCOUNTS=20
 ```
 
 ### 3) Push DB schema
@@ -68,6 +69,8 @@ Open `http://localhost:3000`.
 - Set `CRON_SECRET` in Vercel and send it as `Authorization: Bearer <CRON_SECRET>` (or `x-cron-secret`) when invoking the cron endpoint manually.
 - Recommended rollout: run one full sync right after connecting each service, then rely on incremental cron sync.
 - In `Settings > 서비스 관리`, admins can trigger `지금 동기화` (incremental) or `전체 동기화` (full) and see the latest sync result logs.
+- For scale, cron processes up to `CRON_SYNC_MAX_ACCOUNTS` services per run in round-robin order and applies account-level backoff after failures.
+- Thread status/read state follows Gmail labels as source of truth (`INBOX`, `SENT`, `UNREAD`).
 
 ## Commands
 
