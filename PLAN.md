@@ -354,6 +354,7 @@ id, thread_id (FK), content, version, status (pending | ready | sent | skipped),
 - `src/app/login/page.tsx` — Google 로그인 버튼 페이지
 - `proxy.ts` — 비로그인 시 `/login` 리다이렉트 + API 401 보호 (Next.js 16 규약)
 - `src/lib/session.ts` + API Routes 세션 가드 적용
+- Sidebar 로그아웃 버튼 + NextAuth signOut 연동
 - 환경변수: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `AUTH_SECRET`, `ADMIN_EMAILS` 등록 완료
 
 ### 📋 Phase 2: 사용자 인증 — 원래 계획

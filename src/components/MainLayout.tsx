@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback, useRef, useEffect } from 'react';
+import { signOut } from 'next-auth/react';
 import type { EmailThread, FilterType, Service } from '@/lib/types';
 import { Sidebar } from './Sidebar';
 import { MailList } from './MailList';
@@ -283,6 +284,10 @@ export function MainLayout() {
     []
   );
 
+  const handleLogout = useCallback(() => {
+    void signOut({ callbackUrl: '/login' });
+  }, []);
+
   const handleSelectThread = useCallback(
     async (threadId: string) => {
       setSelectedThreadId(threadId);
@@ -464,6 +469,7 @@ export function MainLayout() {
         selectedServiceId={selectedServiceId}
         onSelectService={handleSelectService}
         onOpenSettings={() => setSettingsOpen(true)}
+        onLogout={handleLogout}
       />
 
       {/* Mail list */}

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Settings } from 'lucide-react';
+import { LogOut, Settings } from 'lucide-react';
 import type { Service } from '@/lib/types';
 import { cn, getInitials } from '@/lib/utils';
 
@@ -10,9 +10,16 @@ interface SidebarProps {
   selectedServiceId: string;
   onSelectService: (id: string) => void;
   onOpenSettings: () => void;
+  onLogout: () => void;
 }
 
-export function Sidebar({ services, selectedServiceId, onSelectService, onOpenSettings }: SidebarProps) {
+export function Sidebar({
+  services,
+  selectedServiceId,
+  onSelectService,
+  onOpenSettings,
+  onLogout,
+}: SidebarProps) {
   return (
     <div
       className="flex h-screen w-[60px] flex-shrink-0 flex-col items-center py-3 gap-1"
@@ -73,6 +80,15 @@ export function Sidebar({ services, selectedServiceId, onSelectService, onOpenSe
       <div className="flex-1" />
 
       {/* Settings */}
+      <TooltipButton label="Logout" side="top">
+        <button
+          onClick={onLogout}
+          className="mb-1 flex h-9 w-9 items-center justify-center rounded-xl text-[#a09d98] hover:bg-[#d9d6d0] hover:text-[#1c1c1c] transition-colors"
+        >
+          <LogOut className="h-4 w-4" />
+        </button>
+      </TooltipButton>
+
       <TooltipButton label="Settings" side="top">
         <button
           onClick={onOpenSettings}
