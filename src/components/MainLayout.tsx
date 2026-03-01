@@ -484,11 +484,26 @@ export function MainLayout() {
   );
 
   // ── Render ─────────────────────────────────────────────────────
-  if (loading || !currentService) {
+  if (loading) {
     return (
       <div className="flex h-screen w-screen items-center justify-center bg-[#efede8]">
         <div className="text-sm text-[#a09d98]">Loading…</div>
       </div>
+    );
+  }
+
+  if (!currentService) {
+    return (
+      <>
+        <NoServiceState onOpenSettings={() => setSettingsOpen(true)} />
+        {settingsOpen && (
+          <SettingsModal
+            services={services}
+            onUpdateServices={setServices}
+            onClose={() => setSettingsOpen(false)}
+          />
+        )}
+      </>
     );
   }
 
@@ -628,6 +643,31 @@ function EmptyState({ serviceName }: { serviceName: string }) {
         <p className="mt-1 text-xs text-[#a09d98]">
           Choose a thread from {serviceName} to read and reply
         </p>
+      </div>
+    </div>
+  );
+}
+
+function NoServiceState({ onOpenSettings }: { onOpenSettings: () => void }) {
+  return (
+    <div className="flex h-screen w-screen items-center justify-center bg-[#efede8] px-4">
+      <div className="w-full max-w-md rounded-2xl border border-[#ddd9d3] bg-white p-7 text-center shadow-sm">
+        <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-[#f5f3ef]">
+          <svg className="h-6 w-6 text-[#706e6a]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+          </svg>
+        </div>
+        <p className="text-[17px] font-semibold text-[#1c1c1c]">아직 연결된 서비스가 없습니다</p>
+        <p className="mt-2 text-[13px] text-[#706e6a]">
+          서비스를 추가하고 Google 계정을 연결하면 받은 메일을 불러올 수 있습니다.
+        </p>
+        <button
+          type="button"
+          onClick={onOpenSettings}
+          className="mt-5 inline-flex items-center justify-center rounded-xl bg-[#1c1c1c] px-4 py-2 text-[13px] font-medium text-white transition-colors hover:bg-[#2a2a2a]"
+        >
+          서비스 추가 + 연결
+        </button>
       </div>
     </div>
   );
