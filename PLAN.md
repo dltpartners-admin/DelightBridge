@@ -356,6 +356,7 @@ id, thread_id (FK), content, version, status (pending | ready | sent | skipped),
 - `proxy.ts` — 비로그인 시 `/login` 리다이렉트 + API 401 보호 (Next.js 16 규약)
 - `src/lib/session.ts` + API Routes 세션 가드 적용
 - Sidebar 로그아웃 버튼 + NextAuth signOut 연동
+- 권한 관리 탭 실연동 (`workspace_members` 기반 멤버 추가/권한 변경/삭제)
 - 환경변수: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `AUTH_SECRET`, `ADMIN_EMAILS` 등록 완료
 
 ### ✅ 인증/연동 개념 분리 원칙
@@ -428,11 +429,12 @@ Cron (5분마다)
 - 발송 성공 시 DB thread status → `sent`, draft status → `sent`
 - `handleSend` / `confirmBulkSend`에서 API 호출로 교체
 
-### 📋 Phase 4: 권한 관리 실 연동
+### ✅ Phase 4: 권한 관리 실 연동 — 1차 완료
 
-- Settings Permissions 탭 — DB `account_permissions` 조회/수정
-- "멤버 추가" 버튼 활성화 (이메일 초대 플로우)
-- API Routes에 권한 레벨 검사 미들웨어 추가
+- Settings Permissions 탭 — DB `workspace_members` 조회/수정
+- "멤버 추가"로 이메일 allowlist 등록 (로그인 전 초대)
+- `auth.ts` 로그인 허용 기준: `ADMIN_EMAILS` 또는 `workspace_members`
+- API Routes에 admin 권한 검사(`requireAdminSession`) 적용
 
 ### 📋 Refactor Checklist (분리 구조 반영)
 
