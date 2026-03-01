@@ -8,10 +8,6 @@ function fromBase64Url(input: string) {
   return Buffer.from(input, 'base64url').toString('utf8');
 }
 
-function normalizeEmail(email: string) {
-  return email.trim().toLowerCase();
-}
-
 function buildAppRedirect(req: NextRequest, status: 'connected' | 'error', reason?: string) {
   const url = new URL('/', req.nextUrl.origin);
   url.searchParams.set('oauth', status);
@@ -68,7 +64,6 @@ export async function GET(req: NextRequest) {
   const [account] = await db
     .select({
       id: gmailAccounts.id,
-      email: gmailAccounts.email,
       refreshToken: gmailAccounts.refreshToken,
     })
     .from(gmailAccounts)
@@ -106,24 +101,6 @@ export async function GET(req: NextRequest) {
 
   if (!token.access_token) {
     return redirectWithCleanup(req, 'error', 'missing_access_token');
-  }
-
-  const profileRes = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/profile', {
-    headers: { Authorization: `Bearer ${token.access_token}` },
-  });
-
-  if (!profileRes.ok) {
-    return redirectWithCleanup(req, 'error', 'gmail_profile_failed');
-  }
-
-  const profile = (await profileRes.json()) as { emailAddress?: string };
-  const connectedEmail = profile.emailAddress;
-  if (!connectedEmail) {
-    return redirectWithCleanup(req, 'error', 'missing_connected_email');
-  }
-
-  if (normalizeEmail(connectedEmail) !== normalizeEmail(account.email)) {
-    return redirectWithCleanup(req, 'error', 'connected_email_mismatch');
   }
 
   const refreshToken = token.refresh_token ?? account?.refreshToken ?? null;

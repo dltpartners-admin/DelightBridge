@@ -44,7 +44,6 @@ export function MainLayout() {
 
     if (oauth === 'error') {
       const reasonMessage: Record<string, string> = {
-        connected_email_mismatch: '선택한 Google 계정 이메일이 서비스 이메일과 다릅니다.',
         state_mismatch: '연결 세션이 만료되었거나 유효하지 않습니다. 다시 시도해 주세요.',
         missing_refresh_token: 'Google에서 refresh token을 받지 못했습니다. 다시 연결해 주세요.',
       };
