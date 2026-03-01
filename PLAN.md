@@ -434,12 +434,23 @@ Cron (5분마다)
 - `auth.ts` 로그인 허용 기준: `ADMIN_EMAILS` 또는 `workspace_members`
 - API Routes에 admin 권한 검사(`requireAdminSession`) 적용
 
-### 🚧 Phase 3: Gmail API 연동 — 진행중
+### ✅ Phase 3: Gmail API 연동 — 1차 완료
 
 - 서비스 생성 플로우를 `서비스 추가 + 연결`로 통합 (생성 직후 OAuth 진입)
 - OAuth 콜백에서 Gmail profile 이메일을 읽어 서비스 이메일 자동 동기화
 - Gmail 토큰(access/refresh) 저장 및 기본 오류 처리 구현
 - 실제 Gmail 발송 API(`POST /api/threads/[id]/send`) 구현 및 UI 발송 버튼 연동 완료 (첨부 제외)
+- Gmail 풀/증분 동기화 유틸 구현 (`src/lib/gmail-sync.ts`)
+- 서비스별 수동 동기화 API 구현 (`POST /api/services/[id]/sync`, `mode=full` 지원)
+- Vercel cron 동기화 API 구현 (`GET /api/cron/sync-gmail`)
+- `vercel.json` cron 스케줄 및 `CRON_SECRET` 인증 적용
+
+### 📋 Phase 3 후속 작업 (2차)
+
+- Settings UI에서 서비스별 "지금 동기화" 버튼 제공
+- 동기화 결과/실패 이력 UI 및 로그 가시화
+- 증분 동기화 안정성 보강 (대량 계정 분산 처리, 백오프/재시도 정책 고도화)
+- Gmail 라벨/상태 매핑 정교화 (archive/read 상태 동기화 정책 재정의)
 
 ### 📋 Refactor Checklist (분리 구조 반영)
 

@@ -66,6 +66,7 @@ Open `http://localhost:3000`.
 - Manual sync (admin only): `POST /api/services/:id/sync?mode=full` for full import, `POST /api/services/:id/sync` for incremental import.
 - Automatic sync: Vercel cron calls `GET /api/cron/sync-gmail` every 5 minutes.
 - Set `CRON_SECRET` in Vercel and send it as `Authorization: Bearer <CRON_SECRET>` (or `x-cron-secret`) when invoking the cron endpoint manually.
+- Recommended rollout: run one full sync right after connecting each service, then rely on incremental cron sync.
 
 ## Commands
 
