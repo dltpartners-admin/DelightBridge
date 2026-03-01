@@ -90,4 +90,6 @@ export interface EmailThread {
   translation: string;      // Korean translation of draft (empty if already Korean)
   lastMessageAt: string;    // ISO, for sorting
   isRead: boolean;
+  lastMessagePreview?: string;
+  messageCount?: number;
 }

@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { emailThreads, emails, drafts, categories } from '@/lib/db/schema';
 import { requireSession } from '@/lib/session';
-import { eq, desc } from 'drizzle-orm';
+import { desc, eq, inArray } from 'drizzle-orm';
+import { stripHtml } from '@/lib/utils';
 
 export async function GET(req: NextRequest) {
   const { unauthorized } = await requireSession();
@@ -10,27 +11,35 @@ export async function GET(req: NextRequest) {
 
   const { searchParams } = new URL(req.url);
   const serviceId = searchParams.get('serviceId');
+  const includeMessages = searchParams.get('includeMessages') === '1';
+  const limit = Math.min(200, Math.max(1, Number(searchParams.get('limit') ?? '100') || 100));
   if (!serviceId) return NextResponse.json({ error: 'serviceId required' }, { status: 400 });
 
   const threads = await db
     .select()
     .from(emailThreads)
     .where(eq(emailThreads.accountId, serviceId))
-    .orderBy(desc(emailThreads.lastMessageAt));
+    .orderBy(desc(emailThreads.lastMessageAt))
+    .limit(limit);
 
   if (threads.length === 0) return NextResponse.json([]);
 
-  const allDrafts = await db.select().from(drafts);
+  const threadIds = threads.map((thread) => thread.id);
+  const allDrafts = await db.select().from(drafts).where(inArray(drafts.threadId, threadIds));
   const allCats = await db.select().from(categories).where(eq(categories.accountId, serviceId));
 
+  const allMessages = await db
+    .select()
+    .from(emails)
+    .where(inArray(emails.threadId, threadIds))
+    .orderBy(emails.sentAt);
+
   type MessageRow = typeof emails.$inferSelect;
-  const messagesByThread: Record<string, MessageRow[]> = {};
-  for (const thread of threads) {
-    messagesByThread[thread.id] = await db
-      .select()
-      .from(emails)
-      .where(eq(emails.threadId, thread.id))
-      .orderBy(emails.sentAt);
+  const messagesByThread = new Map<string, MessageRow[]>();
+  for (const message of allMessages) {
+    const bucket = messagesByThread.get(message.threadId) ?? [];
+    bucket.push(message);
+    messagesByThread.set(message.threadId, bucket);
   }
 
   const draftByThread = Object.fromEntries(allDrafts.map((d) => [d.threadId, d]));
@@ -39,6 +48,8 @@ export async function GET(req: NextRequest) {
   const result = threads.map((thread) => {
     const draft = draftByThread[thread.id];
     const cat = thread.categoryId ? catMap[thread.categoryId] : null;
+    const threadMessages = messagesByThread.get(thread.id) ?? [];
+    const lastMessage = threadMessages[threadMessages.length - 1];
     return {
       id: thread.id,
       serviceId: thread.accountId,
@@ -54,7 +65,9 @@ export async function GET(req: NextRequest) {
       draftSubject: draft?.subject ?? `Re: ${thread.subject}`,
       draftAttachments: [],
       translation: draft?.translation ?? '',
-      messages: (messagesByThread[thread.id] ?? []).map((m) => ({
+      lastMessagePreview: lastMessage ? stripHtml(lastMessage.body) : '',
+      messageCount: threadMessages.length,
+      messages: includeMessages ? threadMessages.map((m) => ({
         id: m.id,
         fromEmail: m.fromEmail,
         fromName: m.fromName,
@@ -63,7 +76,7 @@ export async function GET(req: NextRequest) {
         direction: m.direction,
         timestamp: m.sentAt.toISOString(),
         attachments: [],
-      })),
+      })) : [],
     };
   });
 

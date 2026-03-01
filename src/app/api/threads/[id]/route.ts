@@ -1,8 +1,61 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { emailThreads } from '@/lib/db/schema';
+import { categories, drafts, emails, emailThreads } from '@/lib/db/schema';
 import { requireSession } from '@/lib/session';
 import { eq } from 'drizzle-orm';
+import { stripHtml } from '@/lib/utils';
+
+export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { unauthorized } = await requireSession();
+  if (unauthorized) return unauthorized;
+
+  const { id } = await params;
+  const [thread] = await db.select().from(emailThreads).where(eq(emailThreads.id, id));
+  if (!thread) {
+    return NextResponse.json({ error: 'thread not found' }, { status: 404 });
+  }
+
+  const [draft] = await db.select().from(drafts).where(eq(drafts.threadId, id));
+  const threadMessages = await db
+    .select()
+    .from(emails)
+    .where(eq(emails.threadId, id))
+    .orderBy(emails.sentAt);
+
+  const allCats = await db.select().from(categories).where(eq(categories.accountId, thread.accountId));
+  const catMap = Object.fromEntries(allCats.map((c) => [c.id, c]));
+  const cat = thread.categoryId ? catMap[thread.categoryId] : null;
+  const lastMessage = threadMessages[threadMessages.length - 1];
+
+  return NextResponse.json({
+    id: thread.id,
+    serviceId: thread.accountId,
+    subject: thread.subject,
+    customerEmail: thread.customerEmail,
+    customerName: thread.customerName,
+    categoryId: cat ? cat.id : (thread.categoryId ?? ''),
+    status: thread.status,
+    detectedLanguage: thread.detectedLanguage,
+    isRead: thread.isRead,
+    lastMessageAt: thread.lastMessageAt.toISOString(),
+    draft: draft?.content ?? '',
+    draftSubject: draft?.subject ?? `Re: ${thread.subject}`,
+    draftAttachments: [],
+    translation: draft?.translation ?? '',
+    lastMessagePreview: lastMessage ? stripHtml(lastMessage.body) : '',
+    messageCount: threadMessages.length,
+    messages: threadMessages.map((m) => ({
+      id: m.id,
+      fromEmail: m.fromEmail,
+      fromName: m.fromName,
+      toEmail: m.toEmail,
+      body: m.body,
+      direction: m.direction,
+      timestamp: m.sentAt.toISOString(),
+      attachments: [],
+    })),
+  });
+}
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { unauthorized } = await requireSession();

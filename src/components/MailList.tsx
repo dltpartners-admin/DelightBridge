@@ -9,6 +9,7 @@ interface MailListProps {
   service: Service;
   threads: EmailThread[];
   allThreads: EmailThread[];
+  loading: boolean;
   searchQuery: string;
   selectedThreadId: string | null;
   filter: FilterType;
@@ -33,6 +34,7 @@ const FILTER_OPTIONS: { label: string; value: FilterType }[] = [
 export function MailList({
   service,
   threads,
+  loading,
   searchQuery,
   selectedThreadId,
   filter,
@@ -151,7 +153,17 @@ export function MailList({
 
       {/* Thread list */}
       <div className="flex-1 overflow-y-auto">
-        {threads.length === 0 ? (
+        {loading ? (
+          <div className="space-y-2 px-2 py-2">
+            {Array.from({ length: 8 }).map((_, idx) => (
+              <div key={idx} className="animate-pulse rounded-lg border border-[#ece9e4] bg-[#fafaf9] px-2.5 py-2.5">
+                <div className="mb-1 h-3 w-24 rounded bg-[#e8e5df]" />
+                <div className="mb-1 h-3 w-3/4 rounded bg-[#efede8]" />
+                <div className="h-2.5 w-2/3 rounded bg-[#f2f0ec]" />
+              </div>
+            ))}
+          </div>
+        ) : threads.length === 0 ? (
           <div className="flex h-32 items-center justify-center">
             <p className="text-xs text-[#a09d98]">No conversations</p>
           </div>
@@ -320,14 +332,15 @@ function ThreadItem({
           </div>
 
           {/* Body preview */}
-          {thread.messages.length > 0 && (() => {
-            const lastMsg = thread.messages[thread.messages.length - 1];
-            const preview = stripHtml(lastMsg.body);
-            return preview ? (
-              <div
-                className={cn(
+          {(() => {
+            const preview = thread.messages.length > 0
+                ? stripHtml(thread.messages[thread.messages.length - 1].body)
+                : (thread.lastMessagePreview ?? '');
+              return preview ? (
+                <div
+                  className={cn(
                   'mb-1 truncate text-[11px]',
-                  isSelected ? 'text-white/60' : 'text-[#a09d98]'
+                    isSelected ? 'text-white/60' : 'text-[#a09d98]'
                 )}
               >
                 {preview}
@@ -338,14 +351,14 @@ function ThreadItem({
           {/* Preview + tags */}
           <div className="flex flex-wrap items-center gap-1">
             {/* Message count badge */}
-            {thread.messages.length > 1 && (
+            {(thread.messageCount ?? thread.messages.length) > 1 && (
               <span
                 className={cn(
                   'rounded px-1 text-[9px] font-medium',
                   isSelected ? 'bg-white/20 text-white' : 'bg-[#f0eee9] text-[#706e6a]'
                 )}
               >
-                {thread.messages.length}
+                {thread.messageCount ?? thread.messages.length}
               </span>
             )}
 

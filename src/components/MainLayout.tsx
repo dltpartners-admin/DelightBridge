@@ -29,6 +29,7 @@ export function MainLayout({ currentUser }: { currentUser: CurrentUser }) {
   const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set());
   const [threads, setThreads] = useState<EmailThread[]>([]);
   const [loading, setLoading] = useState(true);
+  const [threadsLoading, setThreadsLoading] = useState(false);
   const [generatingFor, setGeneratingFor] = useState<string | null>(null);
   const [talkingFor, setTalkingFor] = useState<string | null>(null);
   const [translatingFor, setTranslatingFor] = useState<string | null>(null);
@@ -90,10 +91,27 @@ export function MainLayout({ currentUser }: { currentUser: CurrentUser }) {
 
   useEffect(() => {
     if (!selectedServiceId) return;
-    fetch(`/api/threads?serviceId=${selectedServiceId}`)
+    setThreadsLoading(true);
+    fetch(`/api/threads?serviceId=${selectedServiceId}&limit=100`)
       .then((r) => r.json())
-      .then((data: EmailThread[]) => setThreads(data));
+      .then((data: EmailThread[]) => {
+        setThreads(data);
+        setSelectedThreadId(null);
+      })
+      .finally(() => setThreadsLoading(false));
   }, [selectedServiceId]);
+
+  useEffect(() => {
+    if (!selectedThreadId) return;
+    const target = threads.find((thread) => thread.id === selectedThreadId);
+    if (!target || target.messages.length > 0) return;
+
+    fetch(`/api/threads/${selectedThreadId}`)
+      .then((r) => r.json())
+      .then((full: EmailThread) => {
+        setThreads((prev) => prev.map((thread) => (thread.id === full.id ? full : thread)));
+      });
+  }, [selectedThreadId, threads]);
 
   // ── Resizable detail panel ────────────────────────────────────────────────
   const [detailWidth, setDetailWidth] = useState<number | null>(null);
@@ -166,6 +184,7 @@ export function MainLayout({ currentUser }: { currentUser: CurrentUser }) {
           t.customerName,
           t.customerEmail,
           t.draft,
+          t.lastMessagePreview ?? '',
           ...t.messages.map((message) => stripHtml(message.body)),
         ]
           .join(' ')
@@ -185,8 +204,16 @@ export function MainLayout({ currentUser }: { currentUser: CurrentUser }) {
 
   const generateDraft = useCallback(
     async (threadId: string) => {
-      const thread = threads.find((t) => t.id === threadId);
+      let thread = threads.find((t) => t.id === threadId);
       if (!thread) return;
+      if (thread.messages.length === 0) {
+        const detailRes = await fetch(`/api/threads/${threadId}`);
+        if (detailRes.ok) {
+          const detailed = (await detailRes.json()) as EmailThread;
+          thread = detailed;
+          setThreads((prev) => prev.map((t) => (t.id === threadId ? detailed : t)));
+        }
+      }
       const service = services.find((s) => s.id === thread.serviceId);
       if (!service) return;
 
@@ -579,6 +606,7 @@ export function MainLayout({ currentUser }: { currentUser: CurrentUser }) {
         service={currentService}
         threads={filteredThreads}
         allThreads={threads}
+        loading={threadsLoading}
         searchQuery={searchQuery}
         selectedThreadId={selectedThreadId}
         filter={filter}
