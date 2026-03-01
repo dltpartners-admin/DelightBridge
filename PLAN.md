@@ -398,7 +398,8 @@ Google OAuth consent screen
 목표: 실제 Gmail 메일 수신 + 발송, 계정별 OAuth 토큰 관리
 
 #### 3-1. 서비스 계정 Gmail OAuth 연결
-- Settings에서 "Google 계정 연결" → Gmail OAuth 2.0 플로우 (scope: `gmail.readonly`, `gmail.send`)
+- Settings에서 "서비스 추가 + 연결" 시 즉시 Gmail OAuth 2.0 플로우 진입 (scope: `gmail.readonly`, `gmail.send`)
+- OAuth 완료 시 연결된 Google 이메일을 서비스 이메일로 자동 저장
 - access_token + refresh_token을 DB `gmail_accounts`에 암호화 저장
 - 토큰 만료 시 자동 refresh 유틸 (`src/lib/gmail.ts`)
 - Gmail OAuth 시작/완료 API는 `admin` 권한 사용자만 가능하도록 제한
