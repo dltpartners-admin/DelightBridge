@@ -17,6 +17,18 @@ function buildAppRedirect(req: NextRequest, status: 'connected' | 'error', reaso
   return url;
 }
 
+function redirectWithCleanup(req: NextRequest, status: 'connected' | 'error', reason?: string) {
+  const response = NextResponse.redirect(buildAppRedirect(req, status, reason));
+  response.cookies.set('gmail_oauth_state', '', {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: req.nextUrl.protocol === 'https:',
+    maxAge: 0,
+    path: '/',
+  });
+  return response;
+}
+
 export async function GET(req: NextRequest) {
   const { unauthorized } = await requireSession();
   if (unauthorized) return unauthorized;
@@ -27,13 +39,13 @@ export async function GET(req: NextRequest) {
   const stateCookie = req.cookies.get('gmail_oauth_state')?.value;
 
   if (error || !code || !state || !stateCookie || state !== stateCookie) {
-    return NextResponse.redirect(buildAppRedirect(req, 'error', 'state_mismatch'));
+    return redirectWithCleanup(req, 'error', 'state_mismatch');
   }
 
   const clientId = process.env.GOOGLE_CLIENT_ID;
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
   if (!clientId || !clientSecret) {
-    return NextResponse.redirect(buildAppRedirect(req, 'error', 'missing_env'));
+    return redirectWithCleanup(req, 'error', 'missing_env');
   }
 
   let serviceId = '';
@@ -41,11 +53,11 @@ export async function GET(req: NextRequest) {
     const parsed = JSON.parse(fromBase64Url(state)) as { serviceId?: string };
     serviceId = parsed.serviceId ?? '';
   } catch {
-    return NextResponse.redirect(buildAppRedirect(req, 'error', 'invalid_state'));
+    return redirectWithCleanup(req, 'error', 'invalid_state');
   }
 
   if (!serviceId) {
-    return NextResponse.redirect(buildAppRedirect(req, 'error', 'missing_service'));
+    return redirectWithCleanup(req, 'error', 'missing_service');
   }
 
   const redirectUri = `${req.nextUrl.origin}/api/services/oauth/callback`;
@@ -64,7 +76,9 @@ export async function GET(req: NextRequest) {
   });
 
   if (!tokenRes.ok) {
-    return NextResponse.redirect(buildAppRedirect(req, 'error', 'token_exchange_failed'));
+    const detail = await tokenRes.text();
+    console.error('Gmail OAuth token exchange failed', detail);
+    return redirectWithCleanup(req, 'error', 'token_exchange_failed');
   }
 
   const token = (await tokenRes.json()) as {
@@ -72,26 +86,32 @@ export async function GET(req: NextRequest) {
     refresh_token?: string;
   };
 
-  if (!token.access_token || !token.refresh_token) {
-    return NextResponse.redirect(buildAppRedirect(req, 'error', 'missing_tokens'));
+  if (!token.access_token) {
+    return redirectWithCleanup(req, 'error', 'missing_access_token');
   }
 
-  await db
+  const [account] = await db
+    .select({ refreshToken: gmailAccounts.refreshToken })
+    .from(gmailAccounts)
+    .where(eq(gmailAccounts.id, serviceId));
+
+  const refreshToken = token.refresh_token ?? account?.refreshToken ?? null;
+  if (!refreshToken) {
+    return redirectWithCleanup(req, 'error', 'missing_refresh_token');
+  }
+
+  const updated = await db
     .update(gmailAccounts)
     .set({
       accessToken: token.access_token,
-      refreshToken: token.refresh_token,
+      refreshToken,
     })
-    .where(eq(gmailAccounts.id, serviceId));
+    .where(eq(gmailAccounts.id, serviceId))
+    .returning({ id: gmailAccounts.id });
 
-  const response = NextResponse.redirect(buildAppRedirect(req, 'connected'));
-  response.cookies.set('gmail_oauth_state', '', {
-    httpOnly: true,
-    sameSite: 'lax',
-    secure: req.nextUrl.protocol === 'https:',
-    maxAge: 0,
-    path: '/',
-  });
+  if (updated.length === 0) {
+    return redirectWithCleanup(req, 'error', 'service_not_found');
+  }
 
-  return response;
+  return redirectWithCleanup(req, 'connected');
 }
