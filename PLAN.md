@@ -23,6 +23,7 @@
 - 계정(서비스)별 필터링
 - 계정별 사용자 권한 관리 (협업 시 접근 제어)
 - 서비스별 메일 카테고리 자동 라벨링
+- 앱 로그인 계정과 서비스 Gmail 계정을 분리하여 관리
 
 ## Tech Stack
 
@@ -357,6 +358,13 @@ id, thread_id (FK), content, version, status (pending | ready | sent | skipped),
 - Sidebar 로그아웃 버튼 + NextAuth signOut 연동
 - 환경변수: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `AUTH_SECRET`, `ADMIN_EMAILS` 등록 완료
 
+### ✅ 인증/연동 개념 분리 원칙
+
+- **앱 사용자 인증**: "누가 웹앱에 접근 가능한가"를 결정 (NextAuth + users)
+- **서비스 Gmail 연동**: "어떤 Gmail 사서함을 DelightBridge가 읽고/보낼 수 있는가"를 결정 (`gmail_accounts` OAuth 토큰)
+- 앱 로그인 계정(`peter@delightroom.com` 등)은 서비스 Gmail 계정(`support@noji.io` 등)과 달라도 됨
+- 단, 서비스 연동 시 선택한 Google 계정 이메일은 해당 서비스 이메일과 일치해야 함 (오연결 방지)
+
 ### 📋 Phase 2: 사용자 인증 — 원래 계획
 
 목표: Google 로그인, 세션 기반 접근 제어
@@ -393,6 +401,8 @@ Google OAuth consent screen
 - Settings에서 "Google 계정 연결" → Gmail OAuth 2.0 플로우 (scope: `gmail.readonly`, `gmail.send`)
 - access_token + refresh_token을 DB `gmail_accounts`에 암호화 저장
 - 토큰 만료 시 자동 refresh 유틸 (`src/lib/gmail.ts`)
+- OAuth callback에서 Google userinfo 이메일을 조회해 `gmail_accounts.email`과 동일한 경우만 토큰 저장
+- Gmail OAuth 시작/완료 API는 `admin` 권한 사용자만 가능하도록 제한
 
 #### 3-2. 메일 수신 폴링 (Vercel Cron)
 
@@ -425,6 +435,14 @@ Cron (5분마다)
 - Settings Permissions 탭 — DB `account_permissions` 조회/수정
 - "멤버 추가" 버튼 활성화 (이메일 초대 플로우)
 - API Routes에 권한 레벨 검사 미들웨어 추가
+
+### 📋 Refactor Checklist (분리 구조 반영)
+
+- `src/lib/session.ts`: `requireSession` 외 `requireAdminSession`, `requirePermission` 유틸 추가
+- `src/app/api/services/[id]/connect/route.ts`: admin만 OAuth 시작 가능
+- `src/app/api/services/oauth/callback/route.ts`: 서비스 이메일 일치 검증 + 불일치 시 실패 처리
+- `src/components/SettingsModal.tsx`: 연결 실패 사유(`reason`)를 사용자에게 노출
+- `src/lib/db/schema.ts`: `account_permissions` 실사용 스키마 반영 및 API 연동 준비
 
 ### 📋 Future (Nice-to-have)
 
