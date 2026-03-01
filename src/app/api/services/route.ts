@@ -3,6 +3,7 @@ import { db } from '@/lib/db';
 import { gmailAccounts, categories, emailThreads } from '@/lib/db/schema';
 import { requireSession } from '@/lib/session';
 import { eq, and, sql } from 'drizzle-orm';
+import { parseTemplates, stringifyTemplates } from '@/lib/email-templates';
 
 export async function GET() {
   const { unauthorized } = await requireSession();
@@ -30,6 +31,7 @@ export async function GET() {
     gmailConnected: !!account.refreshToken,
     signature: account.signature,
     document: account.document,
+    templates: parseTemplates(account.templates),
     unreadCount: unreadMap[account.id] ?? 0,
     categories: cats
       .filter((c) => c.accountId === account.id)
@@ -46,7 +48,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const { id, name, email, color, signature, document } = await req.json();
+  const { id, name, email, color, signature, document, templates } = await req.json();
   const newId = id ?? `service-${Date.now()}`;
   const fallbackEmail = `${newId}@pending.local`;
   const normalizedEmail =
@@ -63,8 +65,9 @@ export async function POST(req: NextRequest) {
       color: color ?? '#3b5bdb',
       signature: signature ?? '',
       document: document ?? '',
+      templates: stringifyTemplates(templates),
     })
     .returning();
 
-  return NextResponse.json({ ...account, categories: [], unreadCount: 0 });
+  return NextResponse.json({ ...account, templates: parseTemplates(account.templates), categories: [], unreadCount: 0 });
 }

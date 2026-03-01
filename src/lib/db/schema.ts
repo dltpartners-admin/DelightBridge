@@ -39,6 +39,7 @@ export const gmailAccounts = pgTable('gmail_accounts', {
   color: text('color').notNull().default('#3b5bdb'),
   signature: text('signature').notNull().default(''),
   document: text('document').notNull().default(''),
+  templates: text('templates').notNull().default('[]'),
   accessToken: text('access_token'),
   refreshToken: text('refresh_token'),
   lastHistoryId: text('last_history_id'),

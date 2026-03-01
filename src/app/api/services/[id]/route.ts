@@ -3,6 +3,7 @@ import { db } from '@/lib/db';
 import { gmailAccounts, categories } from '@/lib/db/schema';
 import { requireSession } from '@/lib/session';
 import { eq } from 'drizzle-orm';
+import { stringifyTemplates } from '@/lib/email-templates';
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { unauthorized } = await requireSession();
@@ -15,6 +16,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const patch: Partial<typeof gmailAccounts.$inferInsert> = {};
   for (const key of allowed) {
     if (key in body) (patch as Record<string, unknown>)[key] = body[key];
+  }
+  if ('templates' in body) {
+    patch.templates = stringifyTemplates(body.templates);
   }
 
   if (Object.keys(patch).length > 0) {

@@ -108,6 +108,7 @@ export function SettingsModal({ services, currentUser, onUpdateServices, onClose
       email: '연결 전',
       color: PRESET_COLORS[services.length % PRESET_COLORS.length],
       categories: [],
+      templates: [],
       signature: '',
       document: '',
       unreadCount: 0,

@@ -75,6 +75,13 @@ Noji is an AI-powered flashcard app for iOS. Users can import PDFs, web pages, o
       { id: 'pdf', name: 'pdf', color: '#f1f5f9', textColor: '#475569' },
       { id: 'ai-feature', name: 'AI feature', color: '#fef9c3', textColor: '#854d0e' },
     ],
+    templates: [
+      {
+        id: 'tpl-noji-handover',
+        name: '후처리 완료 안내',
+        body: '<p>안녕하세요.</p><p>요청하신 후처리가 완료되어 먼저 안내드립니다. 최종 결과 확인 후 추가 요청사항이 있으면 알려주세요.</p>',
+      },
+    ],
     unreadCount: 8,
   },
   {
@@ -116,6 +123,13 @@ AnkiPro is a powerful spaced repetition flashcard app compatible with Anki (.apk
       { id: 'billing', name: 'billing', color: '#fee2e2', textColor: '#b91c1c' },
       { id: 'feature', name: 'feature request', color: '#fef3c7', textColor: '#92400e' },
       { id: 'stats', name: 'stats bug', color: '#d1fae5', textColor: '#065f46' },
+    ],
+    templates: [
+      {
+        id: 'tpl-ankipro-followup',
+        name: '처리 중 안내',
+        body: '<p>안녕하세요.</p><p>현재 요청하신 내용을 확인 중이며, 진행 상황을 우선 공유드립니다. 확인이 끝나는 대로 최종 안내 드리겠습니다.</p>',
+      },
     ],
     unreadCount: 3,
   },

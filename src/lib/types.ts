@@ -50,6 +50,12 @@ export interface Category {
   textColor: string; // text hex
 }
 
+export interface EmailTemplate {
+  id: string;
+  name: string;
+  body: string;
+}
+
 export interface Service {
   id: string;
   name: string;
@@ -57,6 +63,7 @@ export interface Service {
   color: string; // brand color hex
   gmailConnected?: boolean;
   categories: Category[];
+  templates: EmailTemplate[];
   signature: string; // HTML
   document: string;  // reference/FAQ content for AI
   unreadCount: number;
