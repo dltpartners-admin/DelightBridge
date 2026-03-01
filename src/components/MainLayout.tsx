@@ -464,7 +464,22 @@ export function MainLayout({ currentUser }: { currentUser: CurrentUser }) {
         const result = await Promise.all(
           pending.map(async (tid) => {
             const res = await fetch(`/api/threads/${tid}/send`, { method: 'POST' });
-            return { tid, ok: res.ok || res.status === 409 };
+            let body: { error?: string } | null = null;
+            try {
+              body = (await res.json()) as { error?: string };
+            } catch {
+              body = null;
+            }
+
+            const isSafe409 =
+              res.status === 409 &&
+              (body?.error === 'already_sent' || body?.error === 'duplicate_send_blocked');
+
+            return {
+              tid,
+              ok: res.ok || isSafe409,
+              error: body?.error ?? `http_${res.status}`,
+            };
           })
         );
 
@@ -482,7 +497,8 @@ export function MainLayout({ currentUser }: { currentUser: CurrentUser }) {
 
         const failedCount = result.length - sentIds.length;
         if (failedCount > 0) {
-          console.error(`Failed to send ${failedCount} thread(s)`);
+          const reasons = result.filter((r) => !r.ok).map((r) => `${r.tid}:${r.error}`).join(', ');
+          console.error(`Failed to send ${failedCount} thread(s): ${reasons}`);
         }
       } finally {
         setSendingIds((prev) => {

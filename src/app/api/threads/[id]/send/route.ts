@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { and, desc, eq, isNull } from 'drizzle-orm';
+import { and, desc, eq, isNull, lt } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { drafts, emailThreads, emails, gmailAccounts, sendOutbox } from '@/lib/db/schema';
 import { sendGmailMessage } from '@/lib/gmail';
 import { requirePermission } from '@/lib/session';
+
+const PENDING_TIMEOUT_MS = 2 * 60 * 1000;
 
 function stripHtml(input: string) {
   return input.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
@@ -117,18 +119,6 @@ export async function POST(
     });
   }
 
-  if (existingOutbox?.status === 'failed') {
-    return NextResponse.json(
-      {
-        error: 'send_failed_previously',
-        detail: existingOutbox.error ?? 'previous send failed',
-        idempotencyKey,
-        outboxStatus: 'failed',
-      },
-      { status: 409 }
-    );
-  }
-
   await db
     .insert(sendOutbox)
     .values({
@@ -140,9 +130,30 @@ export async function POST(
     })
     .onConflictDoNothing();
 
+  const now = new Date();
+  const staleBefore = new Date(Date.now() - PENDING_TIMEOUT_MS);
+
+  // Allow retry for previously failed sends with the same idempotency key.
+  await db
+    .update(sendOutbox)
+    .set({ status: 'pending', startedAt: null, error: null, updatedAt: now })
+    .where(and(eq(sendOutbox.idempotencyKey, idempotencyKey), eq(sendOutbox.status, 'failed')));
+
+  // Recover stuck in-progress rows after timeout so sends can continue.
+  await db
+    .update(sendOutbox)
+    .set({ startedAt: null, updatedAt: now })
+    .where(
+      and(
+        eq(sendOutbox.idempotencyKey, idempotencyKey),
+        eq(sendOutbox.status, 'pending'),
+        lt(sendOutbox.startedAt, staleBefore)
+      )
+    );
+
   const claimed = await db
     .update(sendOutbox)
-    .set({ startedAt: new Date(), updatedAt: new Date() })
+    .set({ startedAt: now, updatedAt: now })
     .where(
       and(
         eq(sendOutbox.idempotencyKey, idempotencyKey),
