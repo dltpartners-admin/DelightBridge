@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { emailThreads, emails, drafts, categories } from '@/lib/db/schema';
+import { requireSession } from '@/lib/session';
 import { eq, desc } from 'drizzle-orm';
 
 export async function GET(req: NextRequest) {
+  const { unauthorized } = await requireSession();
+  if (unauthorized) return unauthorized;
+
   const { searchParams } = new URL(req.url);
   const serviceId = searchParams.get('serviceId');
   if (!serviceId) return NextResponse.json({ error: 'serviceId required' }, { status: 400 });

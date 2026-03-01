@@ -3,11 +3,13 @@ import Google from 'next-auth/providers/google';
 import { db } from '@/lib/db';
 import { users } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
+import { authConfig } from './auth.config';
 
 const ADMIN_EMAILS = (process.env.ADMIN_EMAILS ?? '').split(',').map((e) => e.trim()).filter(Boolean);
 const ALLOWED_DOMAIN = process.env.ALLOWED_DOMAIN ?? 'delightroom.com';
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
+  ...authConfig,
   providers: [
     Google({
       clientId: process.env.GOOGLE_CLIENT_ID!,
@@ -15,6 +17,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     }),
   ],
   callbacks: {
+    ...authConfig.callbacks,
     async signIn({ profile }) {
       const email = profile?.email;
       if (!email) return false;

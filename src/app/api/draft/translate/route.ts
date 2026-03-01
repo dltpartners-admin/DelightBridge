@@ -1,10 +1,14 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { NextRequest, NextResponse } from 'next/server';
+import { requireSession } from '@/lib/session';
 
 const client = new Anthropic();
 
 export async function POST(req: NextRequest) {
   try {
+    const { unauthorized } = await requireSession();
+    if (unauthorized) return unauthorized;
+
     const { draft } = await req.json();
     const draftText = draft.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
 

@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { gmailAccounts, categories } from '@/lib/db/schema';
+import { requireSession } from '@/lib/session';
 import { eq } from 'drizzle-orm';
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { unauthorized } = await requireSession();
+  if (unauthorized) return unauthorized;
+
   const { id } = await params;
   const body = await req.json();
 
@@ -37,6 +41,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 }
 
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { unauthorized } = await requireSession();
+  if (unauthorized) return unauthorized;
+
   const { id } = await params;
   await db.delete(gmailAccounts).where(eq(gmailAccounts.id, id));
   return NextResponse.json({ ok: true });

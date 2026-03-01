@@ -1,4 +1,5 @@
-import { signIn } from '@/../auth';
+import { auth, signIn } from '@/../auth';
+import { redirect } from 'next/navigation';
 
 export default async function LoginPage({
   searchParams,
@@ -6,6 +7,11 @@ export default async function LoginPage({
   searchParams: Promise<{ error?: string }>;
 }) {
   const { error } = await searchParams;
+  const session = await auth();
+
+  if (session?.user) {
+    redirect('/');
+  }
 
   return (
     <div className="flex h-screen w-screen items-center justify-center bg-[#efede8]">

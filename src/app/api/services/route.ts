@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { gmailAccounts, categories, emailThreads } from '@/lib/db/schema';
+import { requireSession } from '@/lib/session';
 import { eq, and, sql } from 'drizzle-orm';
 
 export async function GET() {
+  const { unauthorized } = await requireSession();
+  if (unauthorized) return unauthorized;
+
   const accounts = await db.select().from(gmailAccounts).orderBy(gmailAccounts.createdAt);
   const cats = await db.select().from(categories);
 
@@ -35,6 +39,9 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const { unauthorized } = await requireSession();
+  if (unauthorized) return unauthorized;
+
   const { id, name, email, color, signature, document } = await req.json();
   const newId = id ?? `service-${Date.now()}`;
 

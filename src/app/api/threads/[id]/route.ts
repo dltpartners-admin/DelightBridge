@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { emailThreads } from '@/lib/db/schema';
+import { requireSession } from '@/lib/session';
 import { eq } from 'drizzle-orm';
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { unauthorized } = await requireSession();
+  if (unauthorized) return unauthorized;
+
   const { id } = await params;
   const body = await req.json();
 
