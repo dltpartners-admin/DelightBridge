@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { SERVICES, THREADS } from '@/lib/mock-data';
 import type { EmailThread, FilterType, Service } from '@/lib/types';
 import { Sidebar } from './Sidebar';
 import { MailList } from './MailList';
@@ -11,13 +10,14 @@ import { BulkSendModal } from './BulkSendModal';
 import { SettingsModal } from './SettingsModal';
 
 export function MainLayout() {
-  const [services, setServices] = useState<Service[]>(SERVICES);
-  const [selectedServiceId, setSelectedServiceId] = useState<string>(SERVICES[0].id);
+  const [services, setServices] = useState<Service[]>([]);
+  const [selectedServiceId, setSelectedServiceId] = useState<string>('');
   const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterType>('inbox');
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
   const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set());
-  const [threads, setThreads] = useState<EmailThread[]>(THREADS);
+  const [threads, setThreads] = useState<EmailThread[]>([]);
+  const [loading, setLoading] = useState(true);
   const [generatingFor, setGeneratingFor] = useState<string | null>(null);
   const [talkingFor, setTalkingFor] = useState<string | null>(null);
   const [translatingFor, setTranslatingFor] = useState<string | null>(null);
@@ -29,6 +29,25 @@ export function MainLayout() {
   const [bulkSendModal, setBulkSendModal] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const dontShowSendConfirmRef = useRef(false);
+
+  // ── Initial data load ─────────────────────────────────────────────────────
+  useEffect(() => {
+    fetch('/api/services')
+      .then((r) => r.json())
+      .then((data: Service[]) => {
+        setServices(data);
+        if (data.length > 0) setSelectedServiceId(data[0].id);
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    if (!selectedServiceId) return;
+    fetch(`/api/threads?serviceId=${selectedServiceId}`)
+      .then((r) => r.json())
+      .then((data: EmailThread[]) => setThreads(data));
+  }, [selectedServiceId]);
 
   // ── Resizable detail panel ────────────────────────────────────────────────
   const [detailWidth, setDetailWidth] = useState<number | null>(null);
@@ -83,8 +102,8 @@ export function MainLayout() {
     return () => window.removeEventListener('resize', onResize);
   }, [detailWidth]);
 
-  // ── Derived ────────────────────────────────────────────────────────────────
-  const currentService = services.find((s) => s.id === selectedServiceId)!;
+  // ── Derived ─────────────────────────────────────────────────────
+  const currentService = services.find((s) => s.id === selectedServiceId) ?? services[0];
   const currentThread = selectedThreadId
     ? threads.find((t) => t.id === selectedThreadId) ?? null
     : null;
@@ -125,11 +144,24 @@ export function MainLayout() {
           }),
         });
         if (!res.ok) throw new Error('Failed');
-        const { draft, categoryId } = await res.json();
+        const { draft, categoryId, detectedLanguage } = await res.json();
         updateThread(threadId, {
           draft,
           ...(categoryId ? { categoryId } : {}),
+          ...(detectedLanguage ? { detectedLanguage } : {}),
         });
+        fetch(`/api/drafts/${threadId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content: draft }),
+        });
+        if (categoryId) {
+          fetch(`/api/threads/${threadId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ categoryId, ...(detectedLanguage ? { detectedLanguage } : {}) }),
+          });
+        }
       } catch (err) {
         console.error('Draft generation failed:', err);
       } finally {
@@ -157,6 +189,11 @@ export function MainLayout() {
         if (!res.ok) throw new Error('Failed');
         const { draft } = await res.json();
         updateThread(threadId, { draft });
+        fetch(`/api/drafts/${threadId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content: draft }),
+        });
       } catch (err) {
         console.error('Talk to draft failed:', err);
       } finally {
@@ -180,6 +217,11 @@ export function MainLayout() {
         if (!res.ok) throw new Error('Failed');
         const { translation } = await res.json();
         updateThread(threadId, { translation });
+        fetch(`/api/drafts/${threadId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ translation }),
+        });
       } catch (err) {
         console.error('Translate failed:', err);
       } finally {
@@ -246,9 +288,14 @@ export function MainLayout() {
       setSelectedThreadId(threadId);
       const thread = threads.find((t) => t.id === threadId);
       if (!thread) return;
-      // Mark as read
-      if (!thread.isRead) updateThread(threadId, { isRead: true });
-      // Auto-generate draft if empty
+      if (!thread.isRead) {
+        updateThread(threadId, { isRead: true });
+        fetch(`/api/threads/${threadId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ isRead: true }),
+        });
+      }
       if (!thread.draft && thread.status === 'inbox') {
         await generateDraft(threadId);
       }
@@ -276,8 +323,14 @@ export function MainLayout() {
   const handleSaveDraft = useCallback(
     (threadId: string, content: string) => {
       updateThread(threadId, { draft: content });
+      const thread = threads.find((t) => t.id === threadId);
+      fetch(`/api/drafts/${threadId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content, subject: thread?.draftSubject }),
+      });
     },
-    [updateThread]
+    [threads, updateThread]
   );
 
   const handleAddAttachments = useCallback(
@@ -327,8 +380,19 @@ export function MainLayout() {
     (dontShow: boolean) => {
       dontShowSendConfirmRef.current = dontShow;
       if (sendModal.threadId) {
-        updateThread(sendModal.threadId, { status: 'sent' });
-        if (selectedThreadId === sendModal.threadId) setSelectedThreadId(null);
+        const tid = sendModal.threadId;
+        updateThread(tid, { status: 'sent' });
+        if (selectedThreadId === tid) setSelectedThreadId(null);
+        fetch(`/api/threads/${tid}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: 'sent' }),
+        });
+        fetch(`/api/drafts/${tid}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: 'sent' }),
+        });
       }
       setSendModal({ open: false, threadId: null });
     },
@@ -344,6 +408,18 @@ export function MainLayout() {
       prev.map((t) => (checkedIds.has(t.id) ? { ...t, status: 'sent' as const } : t))
     );
     if (selectedThreadId && checkedIds.has(selectedThreadId)) setSelectedThreadId(null);
+    checkedIds.forEach((tid) => {
+      fetch(`/api/threads/${tid}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'sent' }),
+      });
+      fetch(`/api/drafts/${tid}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'sent' }),
+      });
+    });
     setCheckedIds(new Set());
     setBulkSendModal(false);
   }, [checkedIds, selectedThreadId]);
@@ -354,12 +430,27 @@ export function MainLayout() {
         prev.map((t) => (ids.has(t.id) ? { ...t, status: 'archived' as const } : t))
       );
       if (selectedThreadId && ids.has(selectedThreadId)) setSelectedThreadId(null);
+      ids.forEach((tid) => {
+        fetch(`/api/threads/${tid}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: 'archived' }),
+        });
+      });
       setCheckedIds(new Set());
     },
     [selectedThreadId]
   );
 
-  // ── Render ─────────────────────────────────────────────────────────────────
+  // ── Render ─────────────────────────────────────────────────────
+  if (loading || !currentService) {
+    return (
+      <div className="flex h-screen w-screen items-center justify-center bg-[#efede8]">
+        <div className="text-sm text-[#a09d98]">Loading…</div>
+      </div>
+    );
+  }
+
   const sendModalThread = sendModal.threadId
     ? threads.find((t) => t.id === sendModal.threadId) ?? null
     : null;

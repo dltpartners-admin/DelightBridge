@@ -76,11 +76,24 @@ export function SettingsModal({ services, onUpdateServices, onClose }: SettingsM
   const updateService = useCallback(
     (serviceId: string, patch: Partial<Service>) => {
       onUpdateServices(services.map((s) => (s.id === serviceId ? { ...s, ...patch } : s)));
+      const body: Record<string, unknown> = {};
+      const patchTyped = patch as Partial<Service> & { unreadCount?: number };
+      if (patchTyped.name !== undefined) body.name = patchTyped.name;
+      if (patchTyped.email !== undefined) body.email = patchTyped.email;
+      if (patchTyped.color !== undefined) body.color = patchTyped.color;
+      if (patchTyped.signature !== undefined) body.signature = patchTyped.signature;
+      if (patchTyped.document !== undefined) body.document = patchTyped.document;
+      if (patchTyped.categories !== undefined) body.categories = patchTyped.categories;
+      fetch(`/api/services/${serviceId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
     },
     [services, onUpdateServices]
   );
 
-  const addService = useCallback(() => {
+  const addService = useCallback(async () => {
     const id = `service-${Date.now()}`;
     const newService: Service = {
       id,
@@ -92,6 +105,11 @@ export function SettingsModal({ services, onUpdateServices, onClose }: SettingsM
       document: '',
       unreadCount: 0,
     };
+    await fetch('/api/services', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newService),
+    });
     onUpdateServices([...services, newService]);
     setSelectedServiceId(id);
   }, [services, onUpdateServices]);
@@ -103,6 +121,7 @@ export function SettingsModal({ services, onUpdateServices, onClose }: SettingsM
       if (selectedServiceId === serviceId) {
         setSelectedServiceId(next[0]?.id ?? '');
       }
+      fetch(`/api/services/${serviceId}`, { method: 'DELETE' });
     },
     [services, selectedServiceId, onUpdateServices]
   );

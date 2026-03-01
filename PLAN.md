@@ -36,7 +36,7 @@
 
 ### Future (planned)
 
-- **Database**: Supabase (PostgreSQL + Auth)
+- **Database**: Neon DB (Serverless PostgreSQL) + Drizzle ORM
 - **Email**: Gmail API (OAuth 2.0)
 - **Table**: TanStack Table (스프레드시트 UX)
 - **Auth**: NextAuth (Google OAuth)
@@ -257,6 +257,7 @@ Instructions:
 
 ```
 ANTHROPIC_API_KEY=sk-ant-...
+DATABASE_URL=postgresql://...@ep-xxx.us-east-2.aws.neon.tech/voc?sslmode=require
 ```
 
 ## Design
@@ -266,7 +267,7 @@ ANTHROPIC_API_KEY=sk-ant-...
 - **Colors**: 흰 배경(#ffffff) + 회색 텍스트 + 서비스별 액센트 컬러
 - **UI 문구**: AI 모델명 노출 금지 — "AI"로 통일
 
-## DB Schema (Future — Supabase)
+## DB Schema (Neon DB)
 
 ### users
 id, email, name, role (admin | member), created_at
@@ -298,38 +299,130 @@ id, thread_id (FK), account_id (FK), gmail_message_id, direction, from_email, fr
 ### drafts
 id, thread_id (FK), content, version, status (pending | ready | sent | skipped), created_by (FK), sent_by (FK), sent_at, created_at, updated_at
 
+## Currently Mocked (→ 실 구현 필요)
+
+| 위치 | 현재 동작 | 실 구현 |
+|---|---|---|
+| `MainLayout.tsx` `SERVICES` | mock-data.ts 하드코딩 | DB `gmail_accounts` 조회 |
+| `MainLayout.tsx` `THREADS` | mock-data.ts 하드코딩 | DB + Gmail API 폴링 |
+| `MainLayout.handleSend` | `status: 'sent'` 로컬 변경만 | Gmail API로 실제 발송 |
+| `MainLayout.handleArchive` | 로컬 상태 변경만 | DB 업데이트 |
+| `MainLayout.handleSelectThread` isRead | 로컬 상태 변경만 | DB 업데이트 |
+| `MainLayout.handleSaveDraft` | 로컬 상태 변경만 | DB `drafts` upsert |
+| `SettingsModal` `INITIAL_MEMBERS` | 하드코딩 4명, 권한 변경 로컬만 | DB `users` + `account_permissions` |
+| `SettingsModal` 서비스/문서/카테고리 저장 | React state만 (새로고침 시 리셋) | DB CRUD API 호출 |
+| `SettingsModal` "Google 계정 연결" 버튼 | 아무 동작 없음 | Gmail OAuth 2.0 플로우 |
+| 인증 없음 | 누구나 접근 가능 | NextAuth + Google OAuth |
+
 ## Implementation Status
 
 ### ✅ Completed
 
-- 3-Column 레이아웃 (Sidebar + Mail List + Detail Panel)
-- 서비스별 메일 필터링
+- 3-Column 레이아웃 (Sidebar + Mail List + Detail Panel, 리사이즈 가능)
+- 서비스별 메일 필터링 + 카테고리 필터
 - 메일 스레드 표시
-- AI 초안 자동 생성 (claude-sonnet-4-5-20250514)
+- AI 초안 자동 생성
 - TipTap 리치 텍스트 에디터 (Bold, Italic, Underline, Strike, Link, List)
-- 자동저장 (debounce 500ms)
+- 자동저장 (debounce 500ms, 로컬 상태)
 - Talk to Draft (자연어 수정 요청 + 퀵 프롬프트)
-- 비한국어 메일 번역 패널
+- 비한국어 메일 번역 패널 (드래프트 + 메시지 개별 번역)
 - 카테고리 자동 라벨링
 - 발송 확인 팝업 (Don't show again 옵션)
 - 일괄 발송 팝업
 - 체크박스 선택 + 하단 액션바 (Send All / Archive)
+- Settings Modal UI (서비스 관리, 문서/서명, 카테고리, 권한 탭)
 
-### 🚧 In Progress
+### 📋 Phase 1: DB 연동 (데이터 영속화)
 
-- Settings Modal (서비스 관리, 문서/서명, 카테고리, 권한)
+목표: mock-data.ts 제거, 모든 상태를 DB로 이동
+- `@neondatabase/serverless` + `drizzle-orm` + `drizzle-kit` 설치
+- `src/lib/db.ts` — Neon 연결 + Drizzle 인스턴스
+- `src/lib/db/schema.ts` — 전체 스키마 정의
+- `drizzle-kit push`로 Neon에 테이블 생성
+- `scripts/seed.ts` — mock-data 기반 초기 시드
+- API Routes 구현:
+  - `GET/POST /api/services` — 서비스 목록 조회/생성
+  - `PATCH/DELETE /api/services/[id]` — 서비스 수정/삭제
+  - `GET /api/threads?serviceId=` — 스레드 목록
+  - `GET /api/threads/[id]` — 개별 스레드
+  - `PATCH /api/threads/[id]` — isRead, status, categoryId 업데이트
+  - `GET/PUT /api/drafts/[threadId]` — 초안 조회/저장
+- `MainLayout.tsx` — mock-data import 제거, fetch 기반 로딩으로 교체
+- Settings Modal — 서비스/문서/카테고리 변경 시 API 호출로 DB 저장
 
-### 📋 Planned
+### 📋 Phase 2: 사용자 인증
 
-- Gmail API 연동 (OAuth 2.0)
-- Supabase DB 연동
-- 사용자 인증 (NextAuth + Google OAuth)
-- Organization / 권한 관리
-- 메일 자동 수신 (Vercel Cron, 5분 폴링)
-- Gmail 발송 연동
-- Slack 알림 연동
+목표: Google 로그인, 세션 기반 접근 제어
+
+#### 접근 흐름
+```
+앱 접속 (bridge.delightroom.com)
+   ↓ 세션 없음
+middleware.ts → /login 리다이렉트
+   ↓
+/login 페이지 (로고 + "Google로 로그인" 버튼)
+   ↓
+Google OAuth consent screen
+   ↓
+이메일 확인
+  → ADMIN_EMAILS에 있음   → admin 권한으로 DB upsert → 메인 앱
+  → @delightroom.com 도메인 → view 권한으로 DB upsert → 메인 앱
+  → 그 외               → 접근 거부 페이지
+```
+
+#### 구현 항목
+- `next-auth` + Google OAuth Provider 설치 및 설정
+- `src/app/api/auth/[...nextauth]/route.ts` — NextAuth 핸들러 (sign-in 콜백에서 이메일 검사 + DB upsert)
+- `middleware.ts` — 비로그인 시 `/login` 리다이렉트
+- `src/app/login/page.tsx` — Google 로그인 버튼 단일 페이지
+- API Routes에 세션 검사 추가
+- 환경변수: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `NEXTAUTH_SECRET`, `ADMIN_EMAILS`
+
+### 📋 Phase 3: Gmail API 연동
+
+목표: 실제 Gmail 메일 수신 + 발송, 계정별 OAuth 토큰 관리
+
+#### 3-1. 서비스 계정 Gmail OAuth 연결
+- Settings에서 "Google 계정 연결" → Gmail OAuth 2.0 플로우 (scope: `gmail.readonly`, `gmail.send`)
+- access_token + refresh_token을 DB `gmail_accounts`에 암호화 저장
+- 토큰 만료 시 자동 refresh 유틸 (`src/lib/gmail.ts`)
+
+#### 3-2. 메일 수신 폴링 (Vercel Cron)
+
+```
+최초 Gmail 계정 연결 시 (풀 싱크)
+   → users.threads.list (q: "after:날짜", 페이지네이션)
+   → 각 thread의 messages.get으로 본문 수집
+   → DB email_threads / emails upsert
+   → 마지막 historyId를 gmail_accounts에 저장
+
+Cron (5분마다)
+   → users.history.list?startHistoryId={저장된값}
+   → 추가/변경된 메시지만 upsert
+   → historyId 갱신
+```
+
+- `src/app/api/cron/sync-gmail/route.ts` — 5분 간격 Cron Job (historyId 기반 증분 동기화)
+- `src/app/api/services/[id]/sync/route.ts` — 최초 연결 시 풀 싱크 트리거
+- `vercel.json`에 cron 설정: `{ "path": "/api/cron/sync-gmail", "schedule": "*/5 * * * *" }`
+- 환경변수: `CRON_SECRET` (Vercel Cron 보안)
+
+#### 3-3. 메일 발송
+- `POST /api/threads/[id]/send` — Gmail API `users.messages.send`
+- 드래프트 내용 + 첨부파일을 MIME 메시지로 인코딩
+- 발송 성공 시 DB thread status → `sent`, draft status → `sent`
+- `handleSend` / `confirmBulkSend`에서 API 호출로 교체
+
+### 📋 Phase 4: 권한 관리 실 연동
+
+- Settings Permissions 탭 — DB `account_permissions` 조회/수정
+- "멤버 추가" 버튼 활성화 (이메일 초대 플로우)
+- API Routes에 권한 레벨 검사 미들웨어 추가
+
+### 📋 Future (Nice-to-have)
+
+- Slack 알림 연동 (신규 메일 수신 시)
 - 답변 품질 피드백 (👍👎)
 - 메일 우선순위 자동 태깅
 - 통계 대시보드
-- 다국어 답변 지원
-- 첨부파일 처리
+- 첨부파일 처리 (Gmail attachment download + upload)
