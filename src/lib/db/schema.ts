@@ -5,12 +5,14 @@ import {
   boolean,
   pgEnum,
   index,
+  uniqueIndex,
 } from 'drizzle-orm/pg-core';
 
 export const threadStatusEnum = pgEnum('thread_status', ['inbox', 'sent', 'archived']);
 export const emailDirectionEnum = pgEnum('email_direction', ['inbound', 'outbound']);
 export const permissionEnum = pgEnum('permission_level', ['view', 'edit', 'send', 'admin']);
 export const draftStatusEnum = pgEnum('draft_status', ['pending', 'ready', 'sent', 'skipped']);
+export const sendOutboxStatusEnum = pgEnum('send_outbox_status', ['pending', 'sent', 'failed']);
 
 // ── Users ───────────────────────────────────────────────────────────────────
 export const users = pgTable('users', {
@@ -69,6 +71,7 @@ export const emailThreads = pgTable('email_threads', {
 }, (table) => ({
   accountLastMessageIdx: index('email_threads_account_last_message_idx').on(table.accountId, table.lastMessageAt),
   gmailThreadIdx: index('email_threads_gmail_thread_idx').on(table.gmailThreadId),
+  accountGmailThreadUnique: uniqueIndex('email_threads_account_gmail_thread_uidx').on(table.accountId, table.gmailThreadId),
 }));
 
 // ── Emails (individual messages) ──────────────────────────────────────────
@@ -86,6 +89,7 @@ export const emails = pgTable('emails', {
 }, (table) => ({
   threadSentAtIdx: index('emails_thread_sent_at_idx').on(table.threadId, table.sentAt),
   gmailMessageIdx: index('emails_gmail_message_idx').on(table.gmailMessageId),
+  gmailMessageUnique: uniqueIndex('emails_gmail_message_uidx').on(table.gmailMessageId),
 }));
 
 // ── Drafts ────────────────────────────────────────────────────────────────
@@ -99,3 +103,18 @@ export const drafts = pgTable('drafts', {
   sentAt: timestamp('sent_at'),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
+
+// ── Send outbox (idempotency) ─────────────────────────────────────────────
+export const sendOutbox = pgTable('send_outbox', {
+  idempotencyKey: text('idempotency_key').primaryKey(),
+  threadId: text('thread_id').notNull().references(() => emailThreads.id, { onDelete: 'cascade' }),
+  draftUpdatedAt: timestamp('draft_updated_at'),
+  status: sendOutboxStatusEnum('status').notNull().default('pending'),
+  startedAt: timestamp('started_at'),
+  gmailMessageId: text('gmail_message_id'),
+  error: text('error'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (table) => ({
+  threadIdx: index('send_outbox_thread_idx').on(table.threadId),
+}));
