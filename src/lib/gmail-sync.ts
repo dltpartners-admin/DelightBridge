@@ -1,7 +1,8 @@
 import { and, eq, inArray } from 'drizzle-orm';
 import { db } from '@/lib/db';
-import { emailThreads, emails, gmailAccounts } from '@/lib/db/schema';
+import { categories, drafts, emailThreads, emails, gmailAccounts } from '@/lib/db/schema';
 import { getAccessToken, refreshAccessToken } from '@/lib/gmail';
+import { generateDraftFromContext } from '@/lib/draft-generation';
 
 type GmailHeader = { name?: string; value?: string };
 type GmailPayload = {
@@ -266,6 +267,84 @@ async function syncThread(accountId: string, accountEmail: string, gmailThreadId
         },
       });
     insertedMessages += 1;
+  }
+
+  const [accountForDraft] = await db
+    .select({ document: gmailAccounts.document, signature: gmailAccounts.signature })
+    .from(gmailAccounts)
+    .where(eq(gmailAccounts.id, accountId))
+    .limit(1);
+
+  if (accountForDraft && latest.direction === 'inbound') {
+    const [existingDraft] = await db
+      .select({ content: drafts.content, updatedAt: drafts.updatedAt })
+      .from(drafts)
+      .where(eq(drafts.threadId, threadId))
+      .limit(1);
+
+    const hasDraft = !!existingDraft?.content?.replace(/<[^>]*>/g, '').replace(/\s+/g, '').trim();
+    const draftUpToDate = existingDraft ? existingDraft.updatedAt >= latest.sentAt : false;
+
+    if (!hasDraft || !draftUpToDate) {
+      const accountCategories = await db
+        .select({ id: categories.id, name: categories.name })
+        .from(categories)
+        .where(eq(categories.accountId, accountId));
+
+      try {
+        const generated = await generateDraftFromContext({
+          messages: parsed.map((message) => ({
+            direction: message.direction,
+            fromName: message.fromName,
+            timestamp: message.sentAt.toISOString(),
+            body: message.body,
+          })),
+          document: accountForDraft.document,
+          categories: accountCategories,
+          signature: accountForDraft.signature,
+        });
+
+        const now = new Date();
+        await db.transaction(async (tx) => {
+          await tx
+            .insert(drafts)
+            .values({
+              id: `draft-${threadId}`,
+              threadId,
+              subject: `Re: ${latest.subject || '(no subject)'}`,
+              content: generated.draft,
+              status: 'ready',
+              updatedAt: now,
+            })
+            .onConflictDoUpdate({
+              target: drafts.threadId,
+              set: {
+                subject: `Re: ${latest.subject || '(no subject)'}`,
+                content: generated.draft,
+                status: 'ready',
+                updatedAt: now,
+              },
+            });
+
+          if (generated.categoryId || generated.detectedLanguage) {
+            await tx
+              .update(emailThreads)
+              .set({
+                ...(generated.categoryId ? { categoryId: generated.categoryId } : {}),
+                ...(generated.detectedLanguage
+                  ? { detectedLanguage: generated.detectedLanguage }
+                  : {}),
+              })
+              .where(eq(emailThreads.id, threadId));
+          }
+        });
+      } catch (error) {
+        console.error(
+          `Auto draft generation failed for account ${accountId}, thread ${threadId}:`,
+          error
+        );
+      }
+    }
   }
 
   return {
