@@ -15,6 +15,19 @@ DelightBridge is an internal support workspace for handling multiple Gmail inbox
 - Gmail API send endpoint wired to single/bulk send actions (draft attachment send is not yet included)
 - Gmail sync endpoints for full/incremental import + Vercel cron incremental sync
 
+## Current Limits
+
+- Service-level ACL (`account_permissions`) is not implemented yet; permissions are workspace-wide.
+- Email/draft attachments are UI-level only and are not sent through Gmail MIME multipart yet.
+- Member onboarding is allowlist-based (`workspace_members`) and does not include invite-link/email invitation flow.
+
+## Structural Risk Check
+
+- Authorization granularity risk: several write routes still gate by session only, not by resource-level permission.
+- HTML rendering risk: message/signature/translation content is rendered as HTML and needs sanitization hardening.
+- State consistency risk: optimistic UI updates plus fire-and-forget API writes can create UI/DB divergence on failed requests.
+- Cost/abuse risk: AI routes currently do not enforce explicit per-user rate limiting or quotas.
+
 ## Core Concepts
 
 - App user authentication and service Gmail connection are separate concepts.
