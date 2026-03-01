@@ -323,7 +323,7 @@ id, thread_id (FK), content, version, status (pending | ready | sent | skipped),
 - 메일 스레드 표시
 - AI 초안 자동 생성
 - TipTap 리치 텍스트 에디터 (Bold, Italic, Underline, Strike, Link, List)
-- 자동저장 (debounce 500ms, 로컬 상태)
+- 자동저장 (debounce 500ms)
 - Talk to Draft (자연어 수정 요청 + 퀵 프롬프트)
 - 비한국어 메일 번역 패널 (드래프트 + 메시지 개별 번역)
 - 카테고리 자동 라벨링
@@ -332,25 +332,31 @@ id, thread_id (FK), content, version, status (pending | ready | sent | skipped),
 - 체크박스 선택 + 하단 액션바 (Send All / Archive)
 - Settings Modal UI (서비스 관리, 문서/서명, 카테고리, 권한 탭)
 
-### 📋 Phase 1: DB 연동 (데이터 영속화)
+### ✅ Phase 1: DB 연동 — 완료
 
-목표: mock-data.ts 제거, 모든 상태를 DB로 이동
-- `@neondatabase/serverless` + `drizzle-orm` + `drizzle-kit` 설치
-- `src/lib/db.ts` — Neon 연결 + Drizzle 인스턴스
-- `src/lib/db/schema.ts` — 전체 스키마 정의
-- `drizzle-kit push`로 Neon에 테이블 생성
-- `scripts/seed.ts` — mock-data 기반 초기 시드
-- API Routes 구현:
-  - `GET/POST /api/services` — 서비스 목록 조회/생성
-  - `PATCH/DELETE /api/services/[id]` — 서비스 수정/삭제
-  - `GET /api/threads?serviceId=` — 스레드 목록
-  - `GET /api/threads/[id]` — 개별 스레드
-  - `PATCH /api/threads/[id]` — isRead, status, categoryId 업데이트
-  - `GET/PUT /api/drafts/[threadId]` — 초안 조회/저장
-- `MainLayout.tsx` — mock-data import 제거, fetch 기반 로딩으로 교체
-- Settings Modal — 서비스/문서/카테고리 변경 시 API 호출로 DB 저장
+- `@neondatabase/serverless` + `drizzle-orm` + `drizzle-kit` + `dotenv-cli` + `tsx` 설치
+- Drizzle 스키마 정의 (`gmail_accounts`, `categories`, `email_threads`, `emails`, `drafts`, `users`)
+- Neon DB에 테이블 생성 (`pnpm db:push`)
+- mock-data 기반 초기 시드 스크립트 완료 (`scripts/seed.ts`)
+- API Routes: `GET/POST /api/services`, `PATCH/DELETE /api/services/[id]`, `GET /api/threads`, `PATCH /api/threads/[id]`, `GET/PUT /api/drafts/[threadId]`
+- `MainLayout.tsx` mock-data 제거, fetch 기반 로딩 전환
+- isRead / status / draft / translation / categoryId 변경 시 DB 동기화
+- Settings Modal 서비스/문서/카테고리 변경 API로 저장
 
-### 📋 Phase 2: 사용자 인증
+### ✅ Phase 2: 사용자 인증 — 완료
+
+#### 구현 완료
+- `next-auth@beta` 설치
+- `users` DB 테이블 추가
+- `auth.config.ts` — Edge 코에 호환 경량 config
+- `auth.ts` — Google Provider + signIn 콜백 (이메일 검사 + DB upsert) + session 콜백
+- `src/app/api/auth/[...nextauth]/route.ts` — NextAuth 핸들러
+- `src/app/login/page.tsx` — Google 로그인 버튼 페이지
+- `proxy.ts` — 비로그인 시 `/login` 리다이렉트 + API 401 보호 (Next.js 16 규약)
+- `src/lib/session.ts` + API Routes 세션 가드 적용
+- 환경변수: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `AUTH_SECRET`, `ADMIN_EMAILS` 등록 완료
+
+### 📋 Phase 2: 사용자 인증 — 원래 계획
 
 목표: Google 로그인, 세션 기반 접근 제어
 
@@ -358,7 +364,7 @@ id, thread_id (FK), content, version, status (pending | ready | sent | skipped),
 ```
 앱 접속 (bridge.delightroom.com)
    ↓ 세션 없음
-middleware.ts → /login 리다이렉트
+proxy.ts → /login 리다이렉트
    ↓
 /login 페이지 (로고 + "Google로 로그인" 버튼)
    ↓
@@ -373,7 +379,7 @@ Google OAuth consent screen
 #### 구현 항목
 - `next-auth` + Google OAuth Provider 설치 및 설정
 - `src/app/api/auth/[...nextauth]/route.ts` — NextAuth 핸들러 (sign-in 콜백에서 이메일 검사 + DB upsert)
-- `middleware.ts` — 비로그인 시 `/login` 리다이렉트
+- `proxy.ts` — 비로그인 시 `/login` 리다이렉트
 - `src/app/login/page.tsx` — Google 로그인 버튼 단일 페이지
 - API Routes에 세션 검사 추가
 - 환경변수: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `NEXTAUTH_SECRET`, `ADMIN_EMAILS`
