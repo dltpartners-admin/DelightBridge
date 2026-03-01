@@ -11,6 +11,17 @@ export const emailDirectionEnum = pgEnum('email_direction', ['inbound', 'outboun
 export const permissionEnum = pgEnum('permission_level', ['view', 'edit', 'send', 'admin']);
 export const draftStatusEnum = pgEnum('draft_status', ['pending', 'ready', 'sent', 'skipped']);
 
+// ── Users ───────────────────────────────────────────────────────────────────
+export const users = pgTable('users', {
+  id: text('id').primaryKey(),
+  googleId: text('google_id').notNull().unique(),
+  email: text('email').notNull().unique(),
+  name: text('name').notNull(),
+  picture: text('picture'),
+  permission: permissionEnum('permission').notNull().default('view'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
 // ── Gmail accounts (= 서비스) ─────────────────────────────────────────────
 export const gmailAccounts = pgTable('gmail_accounts', {
   id: text('id').primaryKey(),
