@@ -31,6 +31,14 @@ interface Member {
   isAdminByEnv: boolean;
 }
 
+interface SyncLog {
+  id: number;
+  serviceId: string;
+  mode: 'incremental' | 'full';
+  ok: boolean;
+  text: string;
+}
+
 const PERMISSION_OPTIONS: PermissionLevel[] = ['admin', 'send', 'edit', 'view'];
 
 const PERMISSION_LABELS: Record<string, { label: string; desc: string; color: string }> = {
@@ -310,6 +318,44 @@ function ServicesTab({
   onRemove: (id: string) => void;
 }) {
   const selectedService = services.find((service) => service.id === selectedServiceId) ?? null;
+  const [syncingMode, setSyncingMode] = useState<'incremental' | 'full' | null>(null);
+  const [syncLogs, setSyncLogs] = useState<SyncLog[]>([]);
+
+  const runSync = useCallback(
+    async (mode: 'incremental' | 'full') => {
+      if (!selectedService) return;
+      setSyncingMode(mode);
+      try {
+        const query = mode === 'full' ? '?mode=full' : '';
+        const res = await fetch(`/api/services/${selectedService.id}/sync${query}`, { method: 'POST' });
+        const data = (await res.json()) as {
+          ok?: boolean;
+          syncedThreads?: number;
+          upsertedMessages?: number;
+          error?: string;
+        };
+
+        const ok = !!res.ok && !!data.ok;
+        const text = ok
+          ? `${selectedService.name} · ${mode === 'full' ? '전체' : '증분'} 동기화 완료 (threads ${data.syncedThreads ?? 0}, messages ${data.upsertedMessages ?? 0})`
+          : `${selectedService.name} · ${mode === 'full' ? '전체' : '증분'} 동기화 실패 (${data.error ?? 'unknown error'})`;
+
+        setSyncLogs((prev) => [
+          {
+            id: Date.now(),
+            serviceId: selectedService.id,
+            mode,
+            ok,
+            text,
+          },
+          ...prev,
+        ].slice(0, 8));
+      } finally {
+        setSyncingMode(null);
+      }
+    },
+    [selectedService]
+  );
 
   return (
     <div>
@@ -336,8 +382,35 @@ function ServicesTab({
             </svg>
             Google 계정 연결
           </button>
+          <button
+            onClick={() => void runSync('incremental')}
+            disabled={!selectedService || syncingMode !== null}
+            className="rounded-lg border border-[#d0cdc8] bg-white px-3 py-1.5 text-[11px] font-semibold text-[#1c1c1c] transition-colors hover:bg-[#f5f3ef] disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {syncingMode === 'incremental' ? '동기화 중…' : '지금 동기화'}
+          </button>
+          <button
+            onClick={() => void runSync('full')}
+            disabled={!selectedService || syncingMode !== null}
+            className="rounded-lg border border-[#d0cdc8] bg-white px-3 py-1.5 text-[11px] font-semibold text-[#1c1c1c] transition-colors hover:bg-[#f5f3ef] disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {syncingMode === 'full' ? '전체 동기화 중…' : '전체 동기화'}
+          </button>
         </div>
       </div>
+
+      {syncLogs.length > 0 && (
+        <div className="mb-4 space-y-1.5 rounded-lg border border-[#e2dfd8] bg-[#faf9f7] p-3">
+          {syncLogs.map((log) => (
+            <p
+              key={log.id}
+              className={cn('text-[11px]', log.ok ? 'text-[#166534]' : 'text-[#b91c1c]')}
+            >
+              {log.text}
+            </p>
+          ))}
+        </div>
+      )}
 
       <div className="space-y-3">
         {services.map((service) => (
