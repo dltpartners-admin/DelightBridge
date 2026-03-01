@@ -1,8 +1,17 @@
 import { auth } from '@/../auth';
 import { NextResponse } from 'next/server';
 import type { PermissionLevel } from './types';
+import { getAdminEmails } from './admin-emails';
+
+const ADMIN_EMAILS = getAdminEmails();
 
 function getSessionPermission(session: unknown): PermissionLevel | null {
+  const email =
+    (session as { user?: { email?: string } } | null)?.user?.email?.trim().toLowerCase();
+  if (email && ADMIN_EMAILS.includes(email)) {
+    return 'admin';
+  }
+
   const permission =
     (session as { user?: { permission?: PermissionLevel } } | null)?.user?.permission;
   return permission ?? null;
