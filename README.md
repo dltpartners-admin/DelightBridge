@@ -12,6 +12,7 @@ DelightBridge is an internal support workspace for handling multiple Gmail inbox
 - Google OAuth login + session-gated pages and API routes
 - Workspace member allowlist with permissions (View/Edit/Send/Admin)
 - Service onboarding via `서비스 추가 + 연결` (create service and enter Gmail OAuth immediately)
+- Gmail API send endpoint wired to single/bulk send actions (draft attachment send is not yet included)
 
 ## Core Concepts
 

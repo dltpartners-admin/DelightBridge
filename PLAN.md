@@ -442,7 +442,7 @@ Cron (5분마다)
 - 서비스 생성 플로우를 `서비스 추가 + 연결`로 통합 (생성 직후 OAuth 진입)
 - OAuth 콜백에서 Gmail profile 이메일을 읽어 서비스 이메일 자동 동기화
 - Gmail 토큰(access/refresh) 저장 및 기본 오류 처리 구현
-- 실제 Gmail 발송 API(`POST /api/threads/[id]/send`)는 다음 구현 단계
+- 실제 Gmail 발송 API(`POST /api/threads/[id]/send`) 구현 및 UI 발송 버튼 연동 완료 (첨부 제외)
 
 ### 📋 Refactor Checklist (분리 구조 반영)
 
