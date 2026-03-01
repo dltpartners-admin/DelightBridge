@@ -44,6 +44,7 @@ export function MainLayout() {
 
     if (oauth === 'error') {
       const reasonMessage: Record<string, string> = {
+        admin_required: 'Google 계정 연결은 Admin 권한이 필요합니다.',
         state_mismatch: '연결 세션이 만료되었거나 유효하지 않습니다. 다시 시도해 주세요.',
         missing_refresh_token: 'Google에서 refresh token을 받지 못했습니다. 다시 연결해 주세요.',
         gmail_profile_failed: '연결한 Google 계정의 Gmail 정보 조회에 실패했습니다.',

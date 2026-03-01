@@ -7,8 +7,12 @@ function toBase64Url(input: string) {
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { unauthorized, forbidden } = await requireAdminSession();
-  if (unauthorized) return unauthorized;
-  if (forbidden) return forbidden;
+  if (unauthorized) {
+    return NextResponse.redirect(new URL('/login', req.nextUrl.origin));
+  }
+  if (forbidden) {
+    return NextResponse.redirect(new URL('/?oauth=error&reason=admin_required', req.nextUrl.origin));
+  }
 
   const { id: serviceId } = await params;
   const clientId = process.env.GOOGLE_CLIENT_ID;

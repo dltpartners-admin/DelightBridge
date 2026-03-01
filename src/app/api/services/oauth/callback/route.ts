@@ -31,8 +31,12 @@ function redirectWithCleanup(req: NextRequest, status: 'connected' | 'error', re
 
 export async function GET(req: NextRequest) {
   const { unauthorized, forbidden } = await requireAdminSession();
-  if (unauthorized) return unauthorized;
-  if (forbidden) return forbidden;
+  if (unauthorized) {
+    return NextResponse.redirect(new URL('/login', req.nextUrl.origin));
+  }
+  if (forbidden) {
+    return redirectWithCleanup(req, 'error', 'admin_required');
+  }
 
   const error = req.nextUrl.searchParams.get('error');
   const code = req.nextUrl.searchParams.get('code');
