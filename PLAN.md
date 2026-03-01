@@ -437,6 +437,13 @@ Cron (5분마다)
 - `auth.ts` 로그인 허용 기준: `ADMIN_EMAILS` 또는 `workspace_members`
 - API Routes에 admin 권한 검사(`requireAdminSession`) 적용
 
+### 🚧 Phase 3: Gmail API 연동 — 진행중
+
+- 서비스 생성 플로우를 `서비스 추가 + 연결`로 통합 (생성 직후 OAuth 진입)
+- OAuth 콜백에서 Gmail profile 이메일을 읽어 서비스 이메일 자동 동기화
+- Gmail 토큰(access/refresh) 저장 및 기본 오류 처리 구현
+- 실제 Gmail 발송 API(`POST /api/threads/[id]/send`)는 다음 구현 단계
+
 ### 📋 Refactor Checklist (분리 구조 반영)
 
 - `src/lib/session.ts`: `requireSession` 외 `requireAdminSession`, `requirePermission` 유틸 추가

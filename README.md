@@ -1,64 +1,68 @@
 # DelightBridge
 
-Your AI email assistant for seamless global communication.
+DelightBridge is an internal support workspace for handling multiple Gmail inboxes in one place, generating AI drafts from service-specific documents, and collaborating with role-based access.
 
 ![DelightBridge Interface](./public/readme_image.png)
 
----
+## What Works Today
 
-## Write emails that sound like you
+- 3-column support inbox UI (services, thread list, detail editor)
+- AI draft generation, Talk-to-Draft refinement, Korean translation
+- Service/category/document/signature management backed by DB
+- Google OAuth login + session-gated pages and API routes
+- Workspace member allowlist with permissions (View/Edit/Send/Admin)
+- Service onboarding via `서비스 추가 + 연결` (create service and enter Gmail OAuth immediately)
 
-No more staring at blank drafts. DelightBridge helps you write emails that capture your voice and tone perfectly. Just tell it what you want to say, and get a polished draft in seconds.
+## Core Concepts
 
-## Break language barriers instantly
+- App user authentication and service Gmail connection are separate concepts.
+- App access is controlled by `ADMIN_EMAILS` and `workspace_members` allowlist.
+- Each service stores one sender email, automatically synced from connected Gmail OAuth profile.
 
-Communicating across languages has never been easier. Translate your emails in real-time while keeping your original meaning and tone intact. Write in English, send in Korean—or any combination you need.
+## Local Development
 
-## Keep everything organized
+### 1) Install
 
-Manage all your conversations in one place. Find past emails instantly, track ongoing threads, and never lose important context. Everything you need is right where you expect it.
-
-## Built for privacy
-
-Your conversations stay yours. We use bank-grade security to protect your data, and you control where your information goes.
-
----
-
-## Getting Started
-
-DelightBridge is a web application that runs locally on your computer.
-
-### Requirements
-- A computer running macOS, Windows, or Linux
-- An Anthropic API key ([get one here](https://console.anthropic.com/))
-
-### Installation
-
-1. Download the code:
-```bash
-git clone https://github.com/dltpartners-admin/DelightBridge.git
-cd delight-bridge
-```
-
-2. Install dependencies:
 ```bash
 pnpm install
 ```
 
-3. Add your API key:
+### 2) Configure `.env.local`
 
-Create a file called `.env.local` and add:
-```
-ANTHROPIC_API_KEY=your-key-here
+```bash
+ANTHROPIC_API_KEY=sk-ant-...
+DATABASE_URL=postgresql://...
+GOOGLE_CLIENT_ID=...
+GOOGLE_CLIENT_SECRET=...
+AUTH_SECRET=...
+ADMIN_EMAILS=peter@delightroom.com
 ```
 
-4. Start the app:
+### 3) Push DB schema
+
+```bash
+pnpm db:push
+```
+
+### 4) Run
+
 ```bash
 pnpm dev
 ```
 
-5. Open your browser to [http://localhost:3000](http://localhost:3000)
+Open `http://localhost:3000`.
 
----
+## OAuth Setup Notes
 
-Questions? Contact us at admin@dlt-partners.com
+- Google OAuth redirect URI must include `http://localhost:3000/api/auth/callback/google`.
+- Service Gmail connection flow also uses `http://localhost:3000/api/services/oauth/callback`.
+- To allow a new teammate to sign in, add them in `Settings > 권한 관리` (or keep them in `ADMIN_EMAILS`).
+
+## Commands
+
+```bash
+pnpm dev
+pnpm lint
+pnpm build
+pnpm db:push
+```
