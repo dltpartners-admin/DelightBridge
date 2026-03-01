@@ -27,6 +27,7 @@ export async function GET() {
     name: account.name,
     email: account.email,
     color: account.color,
+    gmailConnected: !!account.refreshToken,
     signature: account.signature,
     document: account.document,
     unreadCount: unreadMap[account.id] ?? 0,

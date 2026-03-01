@@ -55,6 +55,7 @@ export interface Service {
   name: string;
   email: string;
   color: string; // brand color hex
+  gmailConnected?: boolean;
   categories: Category[];
   signature: string; // HTML
   document: string;  // reference/FAQ content for AI
