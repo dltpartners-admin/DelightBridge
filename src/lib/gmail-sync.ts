@@ -196,7 +196,7 @@ async function syncThread(accountId: string, accountEmail: string, gmailThreadId
   }
 
   const [existingThreadByGmail] = await db
-    .select({ id: emailThreads.id, status: emailThreads.status })
+    .select({ id: emailThreads.id })
     .from(emailThreads)
     .where(and(eq(emailThreads.accountId, accountId), eq(emailThreads.gmailThreadId, gmailThreadId)))
     .limit(1);
@@ -208,15 +208,11 @@ async function syncThread(accountId: string, accountEmail: string, gmailThreadId
   const hasInboxLabel = latest.labelIds.includes('INBOX');
   const hasSentLabel = latest.labelIds.includes('SENT');
   const nextStatus: 'inbox' | 'sent' | 'archived' =
-    existingThreadByGmail?.status === 'archived'
-      ? 'archived'
-      : hasInboxLabel
-        ? 'inbox'
-        : hasSentLabel
-          ? 'sent'
-          : latest.direction === 'inbound'
-            ? 'inbox'
-            : 'sent';
+    hasInboxLabel
+      ? 'inbox'
+      : hasSentLabel
+        ? 'sent'
+        : 'archived';
 
   await db
     .insert(emailThreads)
