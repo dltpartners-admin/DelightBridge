@@ -10,7 +10,14 @@ import { SendConfirmModal } from './SendConfirmModal';
 import { BulkSendModal } from './BulkSendModal';
 import { SettingsModal } from './SettingsModal';
 
-export function MainLayout() {
+interface CurrentUser {
+  name: string;
+  email: string;
+  picture: string | null;
+  permission: string | null;
+}
+
+export function MainLayout({ currentUser }: { currentUser: CurrentUser }) {
   const [oauthNotice, setOauthNotice] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [services, setServices] = useState<Service[]>([]);
   const [selectedServiceId, setSelectedServiceId] = useState<string>('');
@@ -500,6 +507,7 @@ export function MainLayout() {
         {settingsOpen && (
           <SettingsModal
             services={services}
+            currentUser={currentUser}
             onUpdateServices={setServices}
             onClose={() => setSettingsOpen(false)}
           />
@@ -613,6 +621,7 @@ export function MainLayout() {
       {settingsOpen && (
         <SettingsModal
           services={services}
+          currentUser={currentUser}
           onUpdateServices={setServices}
           onClose={() => setSettingsOpen(false)}
         />

@@ -66,8 +66,17 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           .from(users)
           .where(eq(users.googleId, token.sub));
         if (user) {
+          const isAdminEmail = ADMIN_EMAILS.includes(user.email.trim().toLowerCase());
+          if (isAdminEmail && user.permission !== 'admin') {
+            await db
+              .update(users)
+              .set({ permission: 'admin' })
+              .where(eq(users.id, user.id));
+          }
           session.user.id = user.id;
-          (session.user as typeof session.user & { permission: string }).permission = user.permission;
+          (session.user as typeof session.user & { permission: string }).permission = isAdminEmail
+            ? 'admin'
+            : user.permission;
         }
       }
       return session;

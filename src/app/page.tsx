@@ -8,5 +8,14 @@ export default async function Home() {
     redirect('/login');
   }
 
-  return <MainLayout />;
+  return (
+    <MainLayout
+      currentUser={{
+        name: session.user.name ?? '',
+        email: session.user.email ?? '',
+        picture: session.user.image ?? null,
+        permission: ((session.user as typeof session.user & { permission?: string }).permission ?? null),
+      }}
+    />
+  );
 }

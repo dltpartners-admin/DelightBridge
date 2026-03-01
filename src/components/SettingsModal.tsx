@@ -47,11 +47,17 @@ const PRESET_COLORS = [
 // ── Main Component ───────────────────────────────────────────────────────────
 interface SettingsModalProps {
   services: Service[];
+  currentUser: {
+    name: string;
+    email: string;
+    picture: string | null;
+    permission: string | null;
+  };
   onUpdateServices: (services: Service[]) => void;
   onClose: () => void;
 }
 
-export function SettingsModal({ services, onUpdateServices, onClose }: SettingsModalProps) {
+export function SettingsModal({ services, currentUser, onUpdateServices, onClose }: SettingsModalProps) {
   const [activeTab, setActiveTab] = useState<TabId>('services');
   const [selectedServiceId, setSelectedServiceId] = useState<string>(services[0]?.id ?? '');
 
@@ -153,6 +159,33 @@ export function SettingsModal({ services, onUpdateServices, onClose }: SettingsM
               </button>
             ))}
           </nav>
+          <div className="mt-auto border-t px-3 py-3" style={{ borderColor: 'var(--border)' }}>
+            <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-[#a09d98]">현재 로그인</p>
+            <div className="flex items-center gap-2.5 rounded-lg bg-white px-2.5 py-2">
+              {currentUser.picture ? (
+                <img
+                  src={currentUser.picture}
+                  alt={currentUser.name || currentUser.email}
+                  className="h-8 w-8 rounded-full border border-[#e7e4df] object-cover"
+                />
+              ) : (
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#efede8] text-[11px] font-semibold text-[#706e6a]">
+                  {getInitials(currentUser.name || currentUser.email || '?')}
+                </div>
+              )}
+              <div className="min-w-0">
+                <p className="truncate text-[12px] font-semibold text-[#1c1c1c]">
+                  {currentUser.name || 'Unknown User'}
+                </p>
+                <p className="truncate text-[11px] text-[#8f8b85]">{currentUser.email || '-'}</p>
+                {currentUser.permission && (
+                  <p className="mt-0.5 text-[10px] font-medium uppercase tracking-wide text-[#706e6a]">
+                    {currentUser.permission}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Right content */}
