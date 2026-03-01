@@ -304,16 +304,13 @@ id, thread_id (FK), content, version, status (pending | ready | sent | skipped),
 
 | 위치 | 현재 동작 | 실 구현 |
 |---|---|---|
-| `MainLayout.tsx` `SERVICES` | mock-data.ts 하드코딩 | DB `gmail_accounts` 조회 |
-| `MainLayout.tsx` `THREADS` | mock-data.ts 하드코딩 | DB + Gmail API 폴링 |
-| `MainLayout.handleSend` | `status: 'sent'` 로컬 변경만 | Gmail API로 실제 발송 |
+| Gmail 수신 동기화 | 시드 데이터 중심 + 수동 조회 | Gmail API 폴링/증분 동기화 (`historyId`) |
+| 발송 첨부파일 | UI에서만 보관 | MIME multipart + Gmail attachment 발송 |
+| 서비스별 세부 권한 | 워크스페이스 권한만 적용 | `account_permissions` 기반 서비스 단위 권한 |
+| 멤버 초대 UX | 이메일 allowlist 직접 추가 | 초대 링크/메일 기반 온보딩 |
 | `MainLayout.handleArchive` | 로컬 상태 변경만 | DB 업데이트 |
 | `MainLayout.handleSelectThread` isRead | 로컬 상태 변경만 | DB 업데이트 |
 | `MainLayout.handleSaveDraft` | 로컬 상태 변경만 | DB `drafts` upsert |
-| `SettingsModal` `INITIAL_MEMBERS` | 하드코딩 4명, 권한 변경 로컬만 | DB `users` + `account_permissions` |
-| `SettingsModal` 서비스/문서/카테고리 저장 | React state만 (새로고침 시 리셋) | DB CRUD API 호출 |
-| `SettingsModal` "Google 계정 연결" 버튼 | 아무 동작 없음 | Gmail OAuth 2.0 플로우 |
-| 인증 없음 | 누구나 접근 가능 | NextAuth + Google OAuth |
 
 ## Implementation Status
 

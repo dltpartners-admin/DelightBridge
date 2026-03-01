@@ -62,7 +62,7 @@ export function Sidebar({
       <TooltipButton label="Add service">
         <button
           className="flex h-9 w-9 items-center justify-center rounded-xl text-[#a09d98] hover:bg-[#d9d6d0] hover:text-[#1c1c1c] transition-colors"
-          onClick={() => alert('Settings: Add new service (coming soon)')}
+          onClick={onOpenSettings}
         >
           <svg
             viewBox="0 0 24 24"
