@@ -37,6 +37,20 @@ export async function GET() {
     };
   });
 
+  const existingEmails = new Set(rows.map((row) => row.email));
+  for (const adminEmail of ADMIN_EMAILS) {
+    if (existingEmails.has(adminEmail)) continue;
+    const user = usersByEmail.find((u) => u.email === adminEmail);
+    rows.unshift({
+      email: adminEmail,
+      permission: 'admin',
+      name: user?.name ?? adminEmail.split('@')[0],
+      picture: user?.picture ?? null,
+      hasLoggedIn: !!user,
+      isAdminByEnv: true,
+    });
+  }
+
   return NextResponse.json(rows);
 }
 
