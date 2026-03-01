@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { gmailAccounts, categories, emailThreads, workspaceMembers, users } from '@/lib/db/schema';
+import { gmailAccounts, categories, emailThreads } from '@/lib/db/schema';
 import { requireSession } from '@/lib/session';
 import { eq, and, sql } from 'drizzle-orm';
 
@@ -65,23 +65,6 @@ export async function POST(req: NextRequest) {
       document: document ?? '',
     })
     .returning();
-
-  const normalizedCreatorEmail = session.user.email.trim().toLowerCase();
-  await db
-    .insert(workspaceMembers)
-    .values({
-      email: normalizedCreatorEmail,
-      permission: 'admin',
-    })
-    .onConflictDoUpdate({
-      target: workspaceMembers.email,
-      set: { permission: 'admin' },
-    });
-
-  await db
-    .update(users)
-    .set({ permission: 'admin' })
-    .where(eq(users.email, normalizedCreatorEmail));
 
   return NextResponse.json({ ...account, categories: [], unreadCount: 0 });
 }

@@ -4,9 +4,12 @@ import { db } from '@/lib/db';
 import { gmailAccounts } from '@/lib/db/schema';
 import { syncAccountsByIdsIncremental } from '@/lib/gmail-sync';
 
-function isAuthorizedCronRequest(req: NextRequest) {
-  const secret = process.env.CRON_SECRET;
-  if (!secret) return true;
+function getCronSecret() {
+  const secret = process.env.CRON_SECRET?.trim();
+  return secret ? secret : null;
+}
+
+function isAuthorizedCronRequest(req: NextRequest, secret: string) {
 
   const authHeader = req.headers.get('authorization') ?? '';
   const bearer = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
@@ -30,7 +33,12 @@ function pickAccountsForThisRun(accountIds: string[], maxPerRun: number) {
 }
 
 export async function GET(req: NextRequest) {
-  if (!isAuthorizedCronRequest(req)) {
+  const cronSecret = getCronSecret();
+  if (!cronSecret) {
+    return NextResponse.json({ ok: false, error: 'CRON_SECRET is not configured' }, { status: 500 });
+  }
+
+  if (!isAuthorizedCronRequest(req, cronSecret)) {
     return NextResponse.json({ ok: false, error: 'Unauthorized cron request' }, { status: 401 });
   }
 
