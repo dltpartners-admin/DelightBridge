@@ -40,6 +40,10 @@ type GmailHistoryResponse = {
   historyId?: string;
 };
 
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 function normalizeEmail(input: string | null | undefined) {
   return (input ?? '').trim().toLowerCase();
 }
@@ -129,18 +133,29 @@ async function gmailRequest(
     });
   };
 
-  let res = await make(token);
-  if (res.status === 401 && !forceRefresh) {
-    token = await refreshAccessToken(accountId);
-    res = await make(token);
+  const maxAttempts = 3;
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    const res = await make(token);
+
+    if (res.status === 401 && !forceRefresh) {
+      token = await refreshAccessToken(accountId);
+      continue;
+    }
+
+    if ((res.status === 429 || res.status >= 500) && attempt < maxAttempts - 1) {
+      await sleep(300 * 2 ** attempt);
+      continue;
+    }
+
+    if (!res.ok) {
+      const detail = await res.text();
+      throw new Error(`Gmail request failed (${res.status}): ${detail}`);
+    }
+
+    return res;
   }
 
-  if (!res.ok) {
-    const detail = await res.text();
-    throw new Error(`Gmail request failed (${res.status}): ${detail}`);
-  }
-
-  return res;
+  throw new Error('Gmail request failed after retries');
 }
 
 async function syncThread(accountId: string, accountEmail: string, gmailThreadId: string) {
@@ -190,12 +205,18 @@ async function syncThread(accountId: string, accountEmail: string, gmailThreadId
   const latest = parsed[parsed.length - 1];
   const firstInbound = parsed.find((message) => message.direction === 'inbound') ?? latest;
   const hasUnread = latest.labelIds.includes('UNREAD');
+  const hasInboxLabel = latest.labelIds.includes('INBOX');
+  const hasSentLabel = latest.labelIds.includes('SENT');
   const nextStatus: 'inbox' | 'sent' | 'archived' =
     existingThreadByGmail?.status === 'archived'
       ? 'archived'
-      : latest.direction === 'inbound'
+      : hasInboxLabel
         ? 'inbox'
-        : 'sent';
+        : hasSentLabel
+          ? 'sent'
+          : latest.direction === 'inbound'
+            ? 'inbox'
+            : 'sent';
 
   await db
     .insert(emailThreads)
