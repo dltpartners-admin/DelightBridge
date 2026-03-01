@@ -2,12 +2,12 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import Image from 'next/image';
-import { X, Plus, Trash2, Building2, FileText, Tag, Users, ChevronDown } from 'lucide-react';
+import { X, Plus, Trash2, Building2, FileText, Tag, Users, ChevronDown, Mail } from 'lucide-react';
 import { cn, getInitials } from '@/lib/utils';
-import type { Service, Category, PermissionLevel } from '@/lib/types';
+import type { Service, Category, EmailTemplate, PermissionLevel } from '@/lib/types';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
-type TabId = 'services' | 'documents' | 'categories' | 'permissions';
+type TabId = 'services' | 'documents' | 'categories' | 'templates' | 'permissions';
 
 interface Tab {
   id: TabId;
@@ -19,6 +19,7 @@ const TABS: Tab[] = [
   { id: 'services', label: '서비스 관리', icon: <Building2 className="h-4 w-4" /> },
   { id: 'documents', label: '문서 및 서명', icon: <FileText className="h-4 w-4" /> },
   { id: 'categories', label: '카테고리 설정', icon: <Tag className="h-4 w-4" /> },
+  { id: 'templates', label: '템플릿 관리', icon: <Mail className="h-4 w-4" /> },
   { id: 'permissions', label: '권한 관리', icon: <Users className="h-4 w-4" /> },
 ];
 
@@ -91,6 +92,7 @@ export function SettingsModal({ services, currentUser, onUpdateServices, onClose
       if (patchTyped.signature !== undefined) body.signature = patchTyped.signature;
       if (patchTyped.document !== undefined) body.document = patchTyped.document;
       if (patchTyped.categories !== undefined) body.categories = patchTyped.categories;
+      if (patchTyped.templates !== undefined) body.templates = patchTyped.templates;
       fetch(`/api/services/${serviceId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -248,6 +250,15 @@ export function SettingsModal({ services, currentUser, onUpdateServices, onClose
             )}
             {activeTab === 'categories' && selectedService && (
               <CategoriesTab
+                services={services}
+                selectedServiceId={selectedServiceId}
+                onSelectService={setSelectedServiceId}
+                service={selectedService}
+                onUpdate={updateService}
+              />
+            )}
+            {activeTab === 'templates' && selectedService && (
+              <TemplatesTab
                 services={services}
                 selectedServiceId={selectedServiceId}
                 onSelectService={setSelectedServiceId}
@@ -809,7 +820,157 @@ function CategoriesTab({
   );
 }
 
-// ── Tab 4: Permissions ───────────────────────────────────────────────────────
+// ── Tab 4: Templates ─────────────────────────────────────────────────────────
+function TemplatesTab({
+  services,
+  selectedServiceId,
+  onSelectService,
+  service,
+  onUpdate,
+}: {
+  services: Service[];
+  selectedServiceId: string;
+  onSelectService: (id: string) => void;
+  service: Service;
+  onUpdate: (id: string, patch: Partial<Service>) => void;
+}) {
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editBody, setEditBody] = useState('');
+
+  const handleAdd = () => {
+    const template: EmailTemplate = {
+      id: `tpl-${Date.now()}`,
+      name: '새 템플릿',
+      body: '<p>안녕하세요.</p><p>요청하신 내용 확인 후 안내드립니다.</p>',
+    };
+    onUpdate(service.id, { templates: [...service.templates, template] });
+    setEditingId(template.id);
+    setEditName(template.name);
+    setEditBody(template.body);
+  };
+
+  const startEdit = (template: EmailTemplate) => {
+    setEditingId(template.id);
+    setEditName(template.name);
+    setEditBody(template.body);
+  };
+
+  const saveEdit = () => {
+    if (!editingId) return;
+    onUpdate(service.id, {
+      templates: service.templates.map((template) =>
+        template.id === editingId ? { ...template, name: editName, body: editBody } : template
+      ),
+    });
+    setEditingId(null);
+  };
+
+  const removeTemplate = (templateId: string) => {
+    onUpdate(service.id, {
+      templates: service.templates.filter((template) => template.id !== templateId),
+    });
+    if (editingId === templateId) {
+      setEditingId(null);
+    }
+  };
+
+  return (
+    <div>
+      <ServiceSelector services={services} selectedServiceId={selectedServiceId} onSelect={onSelectService} />
+
+      <div className="mb-4 flex items-center justify-between">
+        <p className="text-[12px] text-[#a09d98]">
+          {service.name}에서 반복해서 쓰는 답장 템플릿을 관리합니다.
+        </p>
+        <button
+          onClick={handleAdd}
+          className="flex items-center gap-1.5 rounded-lg bg-[#3b5bdb] px-3 py-1.5 text-[11px] font-semibold text-white transition-colors hover:bg-[#3451c7]"
+        >
+          <Plus className="h-3.5 w-3.5" />
+          템플릿 추가
+        </button>
+      </div>
+
+      <div className="space-y-3">
+        {service.templates.map((template) => (
+          <div
+            key={template.id}
+            className="rounded-lg border px-4 py-3"
+            style={{ borderColor: 'var(--border)' }}
+          >
+            {editingId === template.id ? (
+              <div className="space-y-2">
+                <input
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  className="w-full max-w-[280px] rounded-lg border px-3 py-1.5 text-[13px] text-[#1c1c1c]"
+                  style={{ borderColor: 'var(--border)' }}
+                  placeholder="템플릿 이름"
+                />
+                <textarea
+                  value={editBody}
+                  onChange={(e) => setEditBody(e.target.value)}
+                  rows={6}
+                  className="w-full rounded-lg border px-3 py-2 text-[12px] font-mono text-[#1c1c1c]"
+                  style={{ borderColor: 'var(--border)' }}
+                  placeholder="<p>템플릿 본문</p>"
+                />
+                <div className="flex gap-2">
+                  <button
+                    onClick={saveEdit}
+                    className="rounded-lg bg-[#3b5bdb] px-3 py-1 text-[11px] font-semibold text-white hover:bg-[#3451c7]"
+                  >
+                    저장
+                  </button>
+                  <button
+                    onClick={() => setEditingId(null)}
+                    className="rounded-lg border px-3 py-1 text-[11px] font-medium text-[#706e6a] hover:bg-[#f0eee9]"
+                    style={{ borderColor: 'var(--border)' }}
+                  >
+                    취소
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-start gap-3">
+                <div className="min-w-0 flex-1">
+                  <p className="text-[13px] font-semibold text-[#1c1c1c]">{template.name}</p>
+                  <div
+                    className="mt-1 line-clamp-3 text-[12px] text-[#706e6a] [&_p]:mb-1"
+                    dangerouslySetInnerHTML={{ __html: template.body }}
+                  />
+                </div>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => startEdit(template)}
+                    className="rounded-lg px-2 py-1 text-[11px] font-medium text-[#706e6a] transition-colors hover:bg-[#f0eee9]"
+                  >
+                    수정
+                  </button>
+                  <button
+                    onClick={() => removeTemplate(template.id)}
+                    className="flex items-center justify-center rounded-lg p-1.5 text-[#a09d98] transition-colors hover:bg-[#fee2e2] hover:text-[#b91c1c]"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
+
+        {service.templates.length === 0 && (
+          <p className="py-8 text-center text-[12px] text-[#a09d98]">
+            템플릿이 없습니다. 반복해서 쓰는 안내 문구를 템플릿으로 추가해 보세요.
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Tab 5: Permissions ───────────────────────────────────────────────────────
 function PermissionsTab({
   services,
   selectedServiceId,

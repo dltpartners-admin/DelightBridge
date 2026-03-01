@@ -40,6 +40,7 @@ export function DraftEditor({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
+  const [selectedTemplateId, setSelectedTemplateId] = useState('');
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -100,6 +101,13 @@ export function DraftEditor({
     e.target.value = '';
   };
 
+  const applyTemplate = () => {
+    if (!editor || !selectedTemplateId) return;
+    const template = service.templates.find((item) => item.id === selectedTemplateId);
+    if (!template) return;
+    editor.commands.setContent(template.body);
+  };
+
   if (isGenerating) {
     return (
       <div className="flex flex-col min-h-[400px]">
@@ -140,6 +148,33 @@ export function DraftEditor({
             Re
           </span>
           <span className="text-[14px] text-[#3d3a37] truncate">{thread.draftSubject || thread.subject}</span>
+        </div>
+        <div className="flex items-center gap-2 pt-1">
+          <span className="text-[11px] font-semibold uppercase tracking-wide text-[#a09d98] w-12">
+            템플릿
+          </span>
+          <select
+            value={selectedTemplateId}
+            onChange={(e) => setSelectedTemplateId(e.target.value)}
+            className="h-8 min-w-[220px] rounded-lg border bg-white px-2.5 text-[12px] text-[#1c1c1c]"
+            style={{ borderColor: 'var(--border)' }}
+          >
+            <option value="">템플릿 선택</option>
+            {service.templates.map((template) => (
+              <option key={template.id} value={template.id}>
+                {template.name}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            onClick={applyTemplate}
+            disabled={!selectedTemplateId}
+            className="h-8 rounded-lg border px-3 text-[11px] font-medium text-[#706e6a] transition-colors hover:bg-[#f5f3ef] disabled:cursor-not-allowed disabled:opacity-50"
+            style={{ borderColor: 'var(--border)' }}
+          >
+            삽입
+          </button>
         </div>
       </div>
 
