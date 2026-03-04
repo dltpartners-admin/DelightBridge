@@ -29,6 +29,8 @@ interface MailListProps {
 const FILTER_OPTIONS: { label: string; value: FilterType }[] = [
   { label: 'Inbox', value: 'inbox' },
   { label: 'All', value: 'all' },
+  { label: 'Unread', value: 'unread' },
+  { label: 'Has Draft', value: 'hasDraft' },
 ];
 
 export function MailList({

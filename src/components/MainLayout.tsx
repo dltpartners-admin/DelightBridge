@@ -175,7 +175,13 @@ export function MainLayout({ currentUser }: { currentUser: CurrentUser }) {
   const filteredThreads = threads
     .filter((t) => {
       if (t.serviceId !== selectedServiceId) return false;
-      if (filter !== 'all' && t.status !== filter) return false;
+      if (filter === 'unread') {
+        if (t.isRead) return false;
+      } else if (filter === 'hasDraft') {
+        if (!t.draft) return false;
+      } else if (filter !== 'all') {
+        if (t.status !== filter) return false;
+      }
       if (categoryFilter && t.categoryId !== categoryFilter) return false;
       const query = searchQuery.trim().toLowerCase();
       if (query) {

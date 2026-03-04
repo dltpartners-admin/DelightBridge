@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import type { EmailThread, Service, EmailMessage, Attachment } from '@/lib/types';
 import { formatFullDateTime, formatFileSize, getInitials, getAvatarColor, stripHtml, isKorean } from '@/lib/utils';
 import { Paperclip, FileText, Download, Languages } from 'lucide-react';
+import Image from 'next/image';
 
 interface ThreadViewProps {
   thread: EmailThread;
@@ -167,9 +168,12 @@ function ImageAttachment({ attachment }: { attachment: Attachment }) {
       className="group relative block overflow-hidden rounded-lg border bg-[#fafaf9] transition-shadow hover:shadow-md"
       style={{ borderColor: 'var(--border)' }}
     >
-      <img
+      <Image
         src={attachment.url}
         alt={attachment.name}
+        width={300}
+        height={200}
+        unoptimized
         className="max-h-[200px] max-w-[300px] object-contain"
       />
       <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/50 to-transparent px-2 py-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
