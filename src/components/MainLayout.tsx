@@ -63,6 +63,7 @@ export function MainLayout({ currentUser }: { currentUser: CurrentUser }) {
         missing_connected_email: '연결한 Google 계정 이메일을 확인할 수 없습니다.',
         email_already_connected: '이미 다른 서비스에서 사용 중인 Gmail 계정입니다.',
         save_failed: '서비스 계정 저장에 실패했습니다. 다시 시도해 주세요.',
+        watch_setup_failed: '연결은 되었지만 Gmail 실시간 동기화 설정에 실패했습니다. 재연결해 주세요.',
       };
       setOauthNotice({
         type: 'error',
