@@ -71,6 +71,11 @@ function extractHeader(payload: GmailPayload | undefined, name: string) {
   return payload?.headers?.find((header) => header.name?.toLowerCase() === needle)?.value ?? '';
 }
 
+function normalizeHeaderValue(input: string) {
+  const value = input.trim();
+  return value ? value.replace(/\r?\n[ \t]*/g, ' ').trim() : null;
+}
+
 function findBodyPart(payload: GmailPayload | undefined, mimeType: string): GmailPayload | null {
   if (!payload) return null;
   if (payload.mimeType === mimeType && payload.body?.data) return payload;
@@ -180,6 +185,9 @@ async function syncThread(accountId: string, accountEmail: string, gmailThreadId
         gmailMessageId: message.id ?? '',
         gmailThreadId: message.threadId ?? gmailThreadId,
         historyId: message.historyId ?? null,
+        rfcMessageId: normalizeHeaderValue(extractHeader(payload, 'Message-ID')),
+        inReplyTo: normalizeHeaderValue(extractHeader(payload, 'In-Reply-To')),
+        references: normalizeHeaderValue(extractHeader(payload, 'References')),
         fromEmail: from.email || 'unknown@example.com',
         fromName: from.name || from.email || 'Unknown',
         toEmail: to.email || normalizeEmail(accountEmail),
@@ -253,6 +261,9 @@ async function syncThread(accountId: string, accountEmail: string, gmailThreadId
         id: emailId,
         threadId,
         gmailMessageId: message.gmailMessageId,
+        rfcMessageId: message.rfcMessageId,
+        inReplyTo: message.inReplyTo,
+        references: message.references,
         fromEmail: message.fromEmail,
         fromName: message.fromName,
         toEmail: message.toEmail,
@@ -263,6 +274,9 @@ async function syncThread(accountId: string, accountEmail: string, gmailThreadId
       .onConflictDoUpdate({
         target: emails.id,
         set: {
+          rfcMessageId: message.rfcMessageId,
+          inReplyTo: message.inReplyTo,
+          references: message.references,
           body: message.body,
           sentAt: message.sentAt,
         },

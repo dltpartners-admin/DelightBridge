@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { and, desc, eq, isNull, lt } from 'drizzle-orm';
+import { and, desc, eq, isNotNull, isNull, lt } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { drafts, emailThreads, emails, gmailAccounts, sendOutbox } from '@/lib/db/schema';
 import { sendGmailMessage } from '@/lib/gmail';
@@ -15,21 +15,40 @@ function toBase64Url(input: string) {
   return Buffer.from(input, 'utf8').toString('base64url');
 }
 
+function normalizeHeaderValue(value: string | null | undefined) {
+  const normalized = value?.trim().replace(/\r?\n[ \t]*/g, ' ');
+  return normalized ? normalized : null;
+}
+
+function mergeReferences(current: string | null, inReplyTo: string | null) {
+  if (!inReplyTo) return current;
+  if (!current) return inReplyTo;
+  return current.includes(inReplyTo) ? current : `${current} ${inReplyTo}`;
+}
+
 function buildRawMime({
   from,
   to,
   subject,
   html,
+  inReplyTo,
+  references,
 }: {
   from: string;
   to: string;
   subject: string;
   html: string;
+  inReplyTo?: string | null;
+  references?: string | null;
 }) {
+  const normalizedInReplyTo = normalizeHeaderValue(inReplyTo);
+  const normalizedReferences = normalizeHeaderValue(references);
   const lines = [
     `From: ${from}`,
     `To: ${to}`,
     `Subject: ${subject}`,
+    ...(normalizedInReplyTo ? [`In-Reply-To: ${normalizedInReplyTo}`] : []),
+    ...(normalizedReferences ? [`References: ${normalizedReferences}`] : []),
     'MIME-Version: 1.0',
     'Content-Type: text/html; charset=UTF-8',
     '',
@@ -102,6 +121,19 @@ export async function POST(
   ) {
     return NextResponse.json({ error: 'duplicate_send_blocked' }, { status: 409 });
   }
+
+  const [replyAnchor] = await db
+    .select({
+      rfcMessageId: emails.rfcMessageId,
+      references: emails.references,
+    })
+    .from(emails)
+    .where(and(eq(emails.threadId, thread.id), isNotNull(emails.rfcMessageId)))
+    .orderBy(desc(emails.sentAt))
+    .limit(1);
+
+  const inReplyTo = normalizeHeaderValue(replyAnchor?.rfcMessageId);
+  const references = mergeReferences(normalizeHeaderValue(replyAnchor?.references), inReplyTo);
 
   const [existingOutbox] = await db
     .select()
@@ -208,6 +240,8 @@ export async function POST(
       to: thread.customerEmail,
       subject,
       html,
+      inReplyTo,
+      references,
     });
 
     const result = await sendGmailMessage({
@@ -257,6 +291,8 @@ export async function POST(
           id: result.id ? `email-${thread.id}-${result.id}` : `email-${thread.id}-${now.getTime()}`,
           threadId: thread.id,
           gmailMessageId: result.id ?? null,
+          inReplyTo,
+          references,
           fromEmail: account.email,
           fromName: account.name,
           toEmail: thread.customerEmail,
