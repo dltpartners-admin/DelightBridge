@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useRef } from 'react';
 import type { EmailThread, Service } from '@/lib/types';
 import { ThreadView } from './ThreadView';
 import { DraftEditor } from './DraftEditor';
@@ -42,6 +43,17 @@ export function MailDetail({
   onEnsureMessageTranslation,
   translatingMessageIds,
 }: MailDetailProps) {
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      const container = scrollRef.current;
+      if (!container) return;
+      container.scrollTop = container.scrollHeight;
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [thread.id, thread.messages.length]);
+
   const category = service.categories.find((c) => c.id === thread.categoryId);
   const isNonKorean = thread.detectedLanguage !== 'ko';
 
@@ -83,7 +95,7 @@ export function MailDetail({
       </div>
 
       {/* Single scrollable area: thread + panels + draft */}
-      <div className="flex-1 overflow-y-auto min-h-0">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto min-h-0">
         {/* Thread messages */}
         <ThreadView
           thread={thread}
