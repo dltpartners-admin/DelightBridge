@@ -131,3 +131,35 @@ export async function startGmailWatch({
 
   return (await res.json()) as { historyId?: string; expiration?: string };
 }
+
+export async function markGmailThreadAsRead({
+  accountId,
+  threadId,
+}: {
+  accountId: string;
+  threadId: string;
+}) {
+  let accessToken = await getAccessToken(accountId);
+
+  const modify = async (token: string) => {
+    return fetch(`https://gmail.googleapis.com/gmail/v1/users/me/threads/${threadId}/modify`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ removeLabelIds: ['UNREAD'] }),
+    });
+  };
+
+  let res = await modify(accessToken);
+  if (res.status === 401) {
+    accessToken = await refreshAccessToken(accountId);
+    res = await modify(accessToken);
+  }
+
+  if (!res.ok) {
+    const detail = await res.text();
+    throw new Error(`Gmail read sync failed: ${detail}`);
+  }
+}

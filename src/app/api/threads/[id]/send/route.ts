@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { and, desc, eq, isNotNull, isNull, lt } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { drafts, emailThreads, emails, gmailAccounts, sendOutbox } from '@/lib/db/schema';
-import { sendGmailMessage } from '@/lib/gmail';
+import { markGmailThreadAsRead, sendGmailMessage } from '@/lib/gmail';
 import { requirePermission } from '@/lib/session';
 
 const PENDING_TIMEOUT_MS = 2 * 60 * 1000;
@@ -312,6 +312,19 @@ export async function POST(
         })
         .where(eq(sendOutbox.idempotencyKey, idempotencyKey));
     });
+
+    const sentThreadId = result.threadId ?? thread.gmailThreadId;
+    if (sentThreadId) {
+      try {
+        await markGmailThreadAsRead({ accountId: account.id, threadId: sentThreadId });
+      } catch (error) {
+        console.error('Failed to sync Gmail read state after send', {
+          threadId: thread.id,
+          gmailThreadId: sentThreadId,
+          error,
+        });
+      }
+    }
 
     return NextResponse.json({
       ok: true,
