@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { ChevronDown, Search, Send, Archive, X } from 'lucide-react';
+import { ChevronDown, Search, Send, Archive, X, Mail } from 'lucide-react';
 import type { Service, EmailThread, FilterType } from '@/lib/types';
 import { cn, formatTime, getInitials, getAvatarColor, stripHtml } from '@/lib/utils';
 
@@ -13,24 +13,29 @@ interface MailListProps {
   searchQuery: string;
   selectedThreadId: string | null;
   filter: FilterType;
+  unreadOnly: boolean;
+  hasDraftOnly: boolean;
   categoryFilter: string | null;
   checkedIds: Set<string>;
   onSelectThread: (id: string) => void;
   onToggleCheck: (id: string) => void;
   onSelectAll: () => void;
   onFilterChange: (f: FilterType) => void;
+  onUnreadOnlyChange: (value: boolean) => void;
+  onHasDraftOnlyChange: (value: boolean) => void;
   onSearchQueryChange: (query: string) => void;
   onCategoryFilterChange: (cat: string | null) => void;
   onBulkSend: () => void;
   onArchive: (ids: Set<string>) => void;
+  onMarkUnread: (ids: Set<string>) => void;
   onDeselect: () => void;
 }
 
 const FILTER_OPTIONS: { label: string; value: FilterType }[] = [
   { label: 'Inbox', value: 'inbox' },
+  { label: 'Sent', value: 'sent' },
+  { label: 'Archived', value: 'archived' },
   { label: 'All', value: 'all' },
-  { label: 'Unread', value: 'unread' },
-  { label: 'Has Draft', value: 'hasDraft' },
 ];
 
 export function MailList({
@@ -40,15 +45,20 @@ export function MailList({
   searchQuery,
   selectedThreadId,
   filter,
+  unreadOnly,
+  hasDraftOnly,
   categoryFilter,
   checkedIds,
   onSelectThread,
   onToggleCheck,
   onFilterChange,
+  onUnreadOnlyChange,
+  onHasDraftOnlyChange,
   onSearchQueryChange,
   onCategoryFilterChange,
   onBulkSend,
   onArchive,
+  onMarkUnread,
   onDeselect,
 }: MailListProps) {
   const [filterOpen, setFilterOpen] = useState(false);
@@ -150,6 +160,18 @@ export function MailList({
               </DropdownMenu>
             )}
           </div>
+
+          <TogglePill
+            label="Unread"
+            active={unreadOnly}
+            onClick={() => onUnreadOnlyChange(!unreadOnly)}
+          />
+
+          <TogglePill
+            label="Has Draft"
+            active={hasDraftOnly}
+            onClick={() => onHasDraftOnlyChange(!hasDraftOnly)}
+          />
         </div>
       </div>
 
@@ -209,6 +231,11 @@ export function MailList({
               icon={<Archive className="h-3.5 w-3.5" />}
               label="Archive"
               onClick={() => onArchive(checkedIds)}
+            />
+            <ActionBtn
+              icon={<Mail className="h-3.5 w-3.5" />}
+              label="Mark unread"
+              onClick={() => onMarkUnread(checkedIds)}
             />
             <button
               onClick={onDeselect}
@@ -479,6 +506,21 @@ function ActionBtn({
       style={variant !== 'primary' ? { borderColor: 'var(--border)' } : undefined}
     >
       {icon}
+      {label}
+    </button>
+  );
+}
+
+function TogglePill({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className={cn(
+        'rounded-md border px-2 py-1 text-[11px] font-medium transition-colors',
+        active ? 'border-[#3b5bdb] bg-[#eef2ff] text-[#3b5bdb]' : 'text-[#706e6a] hover:bg-[#f5f3ef]'
+      )}
+      style={!active ? { borderColor: 'var(--border)' } : undefined}
+    >
       {label}
     </button>
   );

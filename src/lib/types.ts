@@ -1,4 +1,4 @@
-export type FilterType = 'inbox' | 'sent' | 'archived' | 'all' | 'unread' | 'hasDraft';
+export type FilterType = 'inbox' | 'sent' | 'archived' | 'all';
 export type ThreadStatus = 'inbox' | 'sent' | 'archived';
 export type EmailDirection = 'inbound' | 'outbound';
 

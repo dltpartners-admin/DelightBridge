@@ -24,6 +24,8 @@ export function MainLayout({ currentUser }: { currentUser: CurrentUser }) {
   const [selectedServiceId, setSelectedServiceId] = useState<string>('');
   const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterType>('inbox');
+  const [unreadOnly, setUnreadOnly] = useState(false);
+  const [hasDraftOnly, setHasDraftOnly] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
   const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set());
@@ -189,13 +191,11 @@ export function MainLayout({ currentUser }: { currentUser: CurrentUser }) {
   const filteredThreads = threads
     .filter((t) => {
       if (t.serviceId !== selectedServiceId) return false;
-      if (filter === 'unread') {
-        if (t.isRead) return false;
-      } else if (filter === 'hasDraft') {
-        if (!t.draft) return false;
-      } else if (filter !== 'all') {
+      if (filter !== 'all') {
         if (t.status !== filter) return false;
       }
+      if (unreadOnly && t.isRead) return false;
+      if (hasDraftOnly && !t.draft.trim()) return false;
       if (categoryFilter && t.categoryId !== categoryFilter) return false;
       const query = searchQuery.trim().toLowerCase();
       if (query) {
@@ -410,6 +410,8 @@ export function MainLayout({ currentUser }: { currentUser: CurrentUser }) {
       setCheckedIds(new Set());
       setCategoryFilter(null);
       setFilter('inbox');
+      setUnreadOnly(false);
+      setHasDraftOnly(false);
       preGeneratedDraftIdsRef.current.clear();
     },
     []
@@ -605,6 +607,19 @@ export function MainLayout({ currentUser }: { currentUser: CurrentUser }) {
     [selectedThreadId]
   );
 
+  const handleMarkUnread = useCallback((ids: Set<string>) => {
+    if (ids.size === 0) return;
+    setThreads((prev) => prev.map((t) => (ids.has(t.id) ? { ...t, isRead: false } : t)));
+    ids.forEach((tid) => {
+      fetch(`/api/threads/${tid}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isRead: false }),
+      });
+    });
+    setCheckedIds(new Set());
+  }, []);
+
   // ── Render ─────────────────────────────────────────────────────
   if (loading) {
     return (
@@ -669,16 +684,21 @@ export function MainLayout({ currentUser }: { currentUser: CurrentUser }) {
         searchQuery={searchQuery}
         selectedThreadId={selectedThreadId}
         filter={filter}
+        unreadOnly={unreadOnly}
+        hasDraftOnly={hasDraftOnly}
         categoryFilter={categoryFilter}
         checkedIds={checkedIds}
         onSelectThread={handleSelectThread}
         onToggleCheck={handleToggleCheck}
         onSelectAll={handleSelectAll}
         onFilterChange={setFilter}
+        onUnreadOnlyChange={setUnreadOnly}
+        onHasDraftOnlyChange={setHasDraftOnly}
         onSearchQueryChange={setSearchQuery}
         onCategoryFilterChange={setCategoryFilter}
         onBulkSend={handleBulkSend}
         onArchive={handleArchive}
+        onMarkUnread={handleMarkUnread}
         onDeselect={() => setCheckedIds(new Set())}
       />
 

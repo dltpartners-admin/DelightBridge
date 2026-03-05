@@ -3,7 +3,7 @@ import { db } from '@/lib/db';
 import { categories, drafts, emails, emailThreads, gmailAccounts } from '@/lib/db/schema';
 import { requireSession } from '@/lib/session';
 import { eq } from 'drizzle-orm';
-import { markGmailThreadAsRead } from '@/lib/gmail';
+import { markGmailThreadAsRead, markGmailThreadAsUnread } from '@/lib/gmail';
 import { stripHtml } from '@/lib/utils';
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -76,14 +76,18 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if ('categoryId' in body) threadPatch.categoryId = body.categoryId;
   if ('detectedLanguage' in body) threadPatch.detectedLanguage = body.detectedLanguage;
 
-  if (body.isRead === true && thread.gmailThreadId) {
+  if (typeof body.isRead === 'boolean' && thread.gmailThreadId) {
     const [account] = await db
       .select({ refreshToken: gmailAccounts.refreshToken })
       .from(gmailAccounts)
       .where(eq(gmailAccounts.id, thread.accountId));
 
     if (account?.refreshToken) {
-      await markGmailThreadAsRead({ accountId: thread.accountId, threadId: thread.gmailThreadId });
+      if (body.isRead) {
+        await markGmailThreadAsRead({ accountId: thread.accountId, threadId: thread.gmailThreadId });
+      } else {
+        await markGmailThreadAsUnread({ accountId: thread.accountId, threadId: thread.gmailThreadId });
+      }
     }
   }
 
