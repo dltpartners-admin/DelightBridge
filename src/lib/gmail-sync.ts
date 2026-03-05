@@ -37,6 +37,8 @@ type GmailHistoryResponse = {
   history?: Array<{
     messages?: GmailMessage[];
     messagesAdded?: Array<{ message?: GmailMessage }>;
+    labelsAdded?: Array<{ message?: GmailMessage }>;
+    labelsRemoved?: Array<{ message?: GmailMessage }>;
   }>;
   nextPageToken?: string;
   historyId?: string;
@@ -469,9 +471,11 @@ export async function syncAccountIncremental(accountId: string) {
     while (true) {
       const query = new URLSearchParams({
         startHistoryId: account.lastHistoryId,
-        historyTypes: 'messageAdded',
         maxResults: '500',
       });
+      query.append('historyTypes', 'messageAdded');
+      query.append('historyTypes', 'labelAdded');
+      query.append('historyTypes', 'labelRemoved');
       if (pageToken) query.set('pageToken', pageToken);
 
       const res = await gmailRequest(accountId, `/history?${query.toString()}`);
@@ -479,6 +483,14 @@ export async function syncAccountIncremental(accountId: string) {
 
       for (const history of json.history ?? []) {
         for (const entry of history.messagesAdded ?? []) {
+          const tid = entry.message?.threadId;
+          if (tid) threadIdSet.add(tid);
+        }
+        for (const entry of history.labelsAdded ?? []) {
+          const tid = entry.message?.threadId;
+          if (tid) threadIdSet.add(tid);
+        }
+        for (const entry of history.labelsRemoved ?? []) {
           const tid = entry.message?.threadId;
           if (tid) threadIdSet.add(tid);
         }
