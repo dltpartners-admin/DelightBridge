@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { eq } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { gmailAccounts } from '@/lib/db/schema';
+import { startGmailWatch } from '@/lib/gmail';
 import { requireAdminSession } from '@/lib/session';
 
 function fromBase64Url(input: string) {
@@ -146,6 +147,16 @@ export async function GET(req: NextRequest) {
 
   if (updated.length === 0) {
     return redirectWithCleanup(req, 'error', 'service_not_found');
+  }
+
+  const pushTopic = process.env.GMAIL_PUSH_TOPIC?.trim();
+  if (pushTopic) {
+    try {
+      await startGmailWatch({ accountId: serviceId, topicName: pushTopic });
+    } catch (error) {
+      console.error('Gmail watch setup failed', error);
+      return redirectWithCleanup(req, 'error', 'watch_setup_failed');
+    }
   }
 
   return redirectWithCleanup(req, 'connected');

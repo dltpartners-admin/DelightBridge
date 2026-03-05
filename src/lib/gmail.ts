@@ -97,3 +97,37 @@ export async function sendGmailMessage({
 
   return (await res.json()) as { id?: string; threadId?: string };
 }
+
+export async function startGmailWatch({
+  accountId,
+  topicName,
+}: {
+  accountId: string;
+  topicName: string;
+}) {
+  let accessToken = await getAccessToken(accountId);
+
+  const callWatch = async (token: string) => {
+    return fetch('https://gmail.googleapis.com/gmail/v1/users/me/watch', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ topicName }),
+    });
+  };
+
+  let res = await callWatch(accessToken);
+  if (res.status === 401) {
+    accessToken = await refreshAccessToken(accountId);
+    res = await callWatch(accessToken);
+  }
+
+  if (!res.ok) {
+    const detail = await res.text();
+    throw new Error(`Gmail watch setup failed: ${detail}`);
+  }
+
+  return (await res.json()) as { historyId?: string; expiration?: string };
+}
