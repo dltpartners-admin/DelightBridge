@@ -235,8 +235,9 @@ export async function POST(
   }
 
   try {
+    const fromEmail = thread.replyFromEmail?.trim() || account.email;
     const raw = buildRawMime({
-      from: account.email,
+      from: fromEmail,
       to: thread.customerEmail,
       subject,
       html,
@@ -293,7 +294,7 @@ export async function POST(
           gmailMessageId: result.id ?? null,
           inReplyTo,
           references,
-          fromEmail: account.email,
+          fromEmail,
           fromName: account.name,
           toEmail: thread.customerEmail,
           body: html,

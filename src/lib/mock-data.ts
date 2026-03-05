@@ -83,6 +83,15 @@ Noji is an AI-powered flashcard app for iOS. Users can import PDFs, web pages, o
       },
     ],
     unreadCount: 8,
+    senderIdentities: [
+      {
+        id: 'sender-noji-support',
+        email: 'support@noji.io',
+        displayName: 'Noji Support',
+        isDefault: true,
+        isEnabled: true,
+      },
+    ],
   },
   {
     id: 'ankipro',
@@ -132,6 +141,15 @@ AnkiPro is a powerful spaced repetition flashcard app compatible with Anki (.apk
       },
     ],
     unreadCount: 3,
+    senderIdentities: [
+      {
+        id: 'sender-ankipro-support',
+        email: 'support@ankipro.net',
+        displayName: 'AnkiPro Support',
+        isDefault: true,
+        isEnabled: true,
+      },
+    ],
   },
 ];
 

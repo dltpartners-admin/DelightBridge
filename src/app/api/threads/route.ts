@@ -57,6 +57,7 @@ export async function GET(req: NextRequest) {
       customerEmail: thread.customerEmail,
       customerName: thread.customerName,
       categoryId: cat ? cat.id : (thread.categoryId ?? ''),
+      replyFromEmail: thread.replyFromEmail ?? '',
       status: thread.status,
       detectedLanguage: thread.detectedLanguage,
       isRead: thread.isRead,

@@ -111,6 +111,7 @@ export function SettingsModal({ services, currentUser, onUpdateServices, onClose
       color: PRESET_COLORS[services.length % PRESET_COLORS.length],
       categories: [],
       templates: [],
+      senderIdentities: [],
       signature: '',
       document: '',
       unreadCount: 0,

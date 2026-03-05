@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { eq } from 'drizzle-orm';
 import { db } from '@/lib/db';
-import { gmailAccounts } from '@/lib/db/schema';
-import { startGmailWatch } from '@/lib/gmail';
+import { gmailAccounts, serviceSenderIdentities } from '@/lib/db/schema';
+import { listGmailSenderIdentities, startGmailWatch } from '@/lib/gmail';
 import { requireAdminSession } from '@/lib/session';
 
 function fromBase64Url(input: string) {
@@ -147,6 +147,27 @@ export async function GET(req: NextRequest) {
 
   if (updated.length === 0) {
     return redirectWithCleanup(req, 'error', 'service_not_found');
+  }
+
+  try {
+    const senderIdentities = await listGmailSenderIdentities(serviceId);
+    if (senderIdentities.length > 0) {
+      await db.transaction(async (tx) => {
+        await tx.delete(serviceSenderIdentities).where(eq(serviceSenderIdentities.accountId, serviceId));
+        await tx.insert(serviceSenderIdentities).values(
+          senderIdentities.map((identity) => ({
+            id: `sender-${serviceId}-${identity.email}`,
+            accountId: serviceId,
+            email: identity.email,
+            displayName: identity.displayName,
+            isDefault: identity.isDefault,
+            isEnabled: identity.isEnabled,
+          }))
+        );
+      });
+    }
+  } catch (error) {
+    console.error('Gmail sender identity sync failed', error);
   }
 
   const pushTopic = process.env.GMAIL_PUSH_TOPIC?.trim();

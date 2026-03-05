@@ -56,6 +56,14 @@ export interface EmailTemplate {
   body: string;
 }
 
+export interface SenderIdentity {
+  id: string;
+  email: string;
+  displayName: string;
+  isDefault: boolean;
+  isEnabled: boolean;
+}
+
 export interface Service {
   id: string;
   name: string;
@@ -67,6 +75,7 @@ export interface Service {
   signature: string; // HTML
   document: string;  // reference/FAQ content for AI
   unreadCount: number;
+  senderIdentities: SenderIdentity[];
 }
 
 export interface EmailMessage {
@@ -89,6 +98,7 @@ export interface EmailThread {
   customerName: string;
   messages: EmailMessage[];
   categoryId: string;
+  replyFromEmail?: string;
   status: ThreadStatus;
   draft: string;         // HTML draft body
   draftSubject: string;

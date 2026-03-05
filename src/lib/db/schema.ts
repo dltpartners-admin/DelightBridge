@@ -46,6 +46,19 @@ export const gmailAccounts = pgTable('gmail_accounts', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
+export const serviceSenderIdentities = pgTable('service_sender_identities', {
+  id: text('id').primaryKey(),
+  accountId: text('account_id').notNull().references(() => gmailAccounts.id, { onDelete: 'cascade' }),
+  email: text('email').notNull(),
+  displayName: text('display_name').notNull().default(''),
+  isDefault: boolean('is_default').notNull().default(false),
+  isEnabled: boolean('is_enabled').notNull().default(true),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (table) => ({
+  accountEmailUnique: uniqueIndex('service_sender_identities_account_email_uidx').on(table.accountId, table.email),
+  accountIdx: index('service_sender_identities_account_idx').on(table.accountId),
+}));
+
 // ── Categories ────────────────────────────────────────────────────────────
 export const categories = pgTable('categories', {
   id: text('id').primaryKey(),
@@ -64,6 +77,7 @@ export const emailThreads = pgTable('email_threads', {
   customerEmail: text('customer_email').notNull(),
   customerName: text('customer_name').notNull(),
   categoryId: text('category_id'),
+  replyFromEmail: text('reply_from_email'),
   status: threadStatusEnum('status').notNull().default('inbox'),
   detectedLanguage: text('detected_language').notNull().default('en'),
   isRead: boolean('is_read').notNull().default(false),
@@ -86,6 +100,8 @@ export const emails = pgTable('emails', {
   fromEmail: text('from_email').notNull(),
   fromName: text('from_name').notNull(),
   toEmail: text('to_email').notNull(),
+  toHeader: text('to_header'),
+  ccHeader: text('cc_header'),
   body: text('body').notNull(),
   direction: emailDirectionEnum('direction').notNull(),
   sentAt: timestamp('sent_at').notNull(),

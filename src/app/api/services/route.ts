@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { gmailAccounts, categories, emailThreads } from '@/lib/db/schema';
+import { gmailAccounts, categories, emailThreads, serviceSenderIdentities } from '@/lib/db/schema';
 import { requireSession } from '@/lib/session';
 import { eq, and, sql } from 'drizzle-orm';
 import { parseTemplates, stringifyTemplates } from '@/lib/email-templates';
@@ -11,6 +11,7 @@ export async function GET() {
 
   const accounts = await db.select().from(gmailAccounts).orderBy(gmailAccounts.createdAt);
   const cats = await db.select().from(categories);
+  const senderRows = await db.select().from(serviceSenderIdentities);
 
   const unreadCounts = await db
     .select({
@@ -23,20 +24,45 @@ export async function GET() {
 
   const unreadMap = Object.fromEntries(unreadCounts.map((r) => [r.accountId, r.count]));
 
-  const services = accounts.map((account) => ({
-    id: account.id,
-    name: account.name,
-    email: account.email,
-    color: account.color,
-    gmailConnected: !!account.refreshToken,
-    signature: account.signature,
-    document: account.document,
-    templates: parseTemplates(account.templates),
-    unreadCount: unreadMap[account.id] ?? 0,
-    categories: cats
-      .filter((c) => c.accountId === account.id)
-      .map((c) => ({ id: c.id, name: c.name, color: c.color, textColor: c.textColor })),
-  }));
+  const services = accounts.map((account) => {
+    const accountSenders = senderRows
+      .filter((sender) => sender.accountId === account.id)
+      .map((sender) => ({
+        id: sender.id,
+        email: sender.email,
+        displayName: sender.displayName,
+        isDefault: sender.isDefault,
+        isEnabled: sender.isEnabled,
+      }));
+    const hasPrimary = accountSenders.some((sender) => sender.email === account.email);
+
+    return {
+      id: account.id,
+      name: account.name,
+      email: account.email,
+      color: account.color,
+      gmailConnected: !!account.refreshToken,
+      signature: account.signature,
+      document: account.document,
+      templates: parseTemplates(account.templates),
+      unreadCount: unreadMap[account.id] ?? 0,
+      senderIdentities: hasPrimary
+        ? accountSenders
+        : [
+            ...accountSenders,
+            {
+              id: `sender-${account.id}-${account.email}`,
+              email: account.email,
+              displayName: account.name,
+              isDefault: true,
+              isEnabled: true,
+            },
+          ],
+      categories: cats
+        .filter((c) => c.accountId === account.id)
+        .map((c) => ({ id: c.id, name: c.name, color: c.color, textColor: c.textColor })),
+    };
+  });
 
   return NextResponse.json(services);
 }
@@ -69,5 +95,19 @@ export async function POST(req: NextRequest) {
     })
     .returning();
 
-  return NextResponse.json({ ...account, templates: parseTemplates(account.templates), categories: [], unreadCount: 0 });
+  return NextResponse.json({
+    ...account,
+    templates: parseTemplates(account.templates),
+    categories: [],
+    unreadCount: 0,
+    senderIdentities: [
+      {
+        id: `sender-${account.id}-${account.email}`,
+        email: account.email,
+        displayName: account.name,
+        isDefault: true,
+        isEnabled: true,
+      },
+    ],
+  });
 }

@@ -1,6 +1,6 @@
 import { and, eq, inArray } from 'drizzle-orm';
 import { db } from '@/lib/db';
-import { categories, drafts, emailThreads, emails, gmailAccounts } from '@/lib/db/schema';
+import { categories, drafts, emailThreads, emails, gmailAccounts, serviceSenderIdentities } from '@/lib/db/schema';
 import { getAccessToken, refreshAccessToken } from '@/lib/gmail';
 import { generateDraftFromContext } from '@/lib/draft-generation';
 import { translateDraftToKorean } from '@/lib/draft-translation';
@@ -124,6 +124,17 @@ function parseAddress(raw: string) {
   };
 }
 
+function extractEmailsFromHeader(raw: string | null | undefined) {
+  if (!raw) return [];
+  return raw
+    .split(',')
+    .map((part) => {
+      const match = part.match(/<([^>]+)>/);
+      return normalizeEmail(match ? match[1] : part);
+    })
+    .filter(Boolean);
+}
+
 async function gmailRequest(
   accountId: string,
   path: string,
@@ -177,6 +188,7 @@ async function syncThread(accountId: string, accountEmail: string, gmailThreadId
       const payload = message.payload;
       const fromValue = extractHeader(payload, 'From');
       const toValue = extractHeader(payload, 'To');
+      const ccValue = extractHeader(payload, 'Cc');
       const subject = extractHeader(payload, 'Subject');
       const from = parseAddress(fromValue);
       const to = parseAddress(toValue);
@@ -193,6 +205,8 @@ async function syncThread(accountId: string, accountEmail: string, gmailThreadId
         fromEmail: from.email || 'unknown@example.com',
         fromName: from.name || from.email || 'Unknown',
         toEmail: to.email || normalizeEmail(accountEmail),
+        toHeader: normalizeHeaderValue(toValue),
+        ccHeader: normalizeHeaderValue(ccValue),
         subject,
         sentAt,
         direction,
@@ -208,7 +222,7 @@ async function syncThread(accountId: string, accountEmail: string, gmailThreadId
   }
 
   const [existingThreadByGmail] = await db
-    .select({ id: emailThreads.id })
+    .select({ id: emailThreads.id, replyFromEmail: emailThreads.replyFromEmail })
     .from(emailThreads)
     .where(and(eq(emailThreads.accountId, accountId), eq(emailThreads.gmailThreadId, gmailThreadId)))
     .limit(1);
@@ -219,6 +233,26 @@ async function syncThread(accountId: string, accountEmail: string, gmailThreadId
   const hasUnread = latest.labelIds.includes('UNREAD');
   const hasInboxLabel = latest.labelIds.includes('INBOX');
   const hasSentLabel = latest.labelIds.includes('SENT');
+  const senderIdentities = await db
+    .select({ email: serviceSenderIdentities.email, isEnabled: serviceSenderIdentities.isEnabled, isDefault: serviceSenderIdentities.isDefault })
+    .from(serviceSenderIdentities)
+    .where(eq(serviceSenderIdentities.accountId, accountId));
+  const enabledSenderEmails = senderIdentities
+    .filter((identity) => identity.isEnabled)
+    .map((identity) => normalizeEmail(identity.email));
+  const recipientEmails = new Set([
+    ...extractEmailsFromHeader(latest.toHeader),
+    ...extractEmailsFromHeader(latest.ccHeader),
+  ]);
+  const matchedReplyFrom = enabledSenderEmails.find((email) => recipientEmails.has(email));
+  const defaultReplyFrom =
+    senderIdentities.find((identity) => identity.isDefault && identity.isEnabled)?.email ??
+    senderIdentities.find((identity) => identity.isEnabled)?.email ??
+    accountEmail;
+  const existingReplyFrom = normalizeEmail(existingThreadByGmail?.replyFromEmail);
+  const nextReplyFromEmail = existingReplyFrom && enabledSenderEmails.includes(existingReplyFrom)
+    ? existingReplyFrom
+    : normalizeEmail(matchedReplyFrom ?? defaultReplyFrom);
   const nextStatus: 'inbox' | 'sent' | 'archived' =
     hasInboxLabel
       ? 'inbox'
@@ -236,6 +270,7 @@ async function syncThread(accountId: string, accountEmail: string, gmailThreadId
       customerEmail: firstInbound.fromEmail,
       customerName: firstInbound.fromName,
       categoryId: null,
+      replyFromEmail: nextReplyFromEmail,
       status: nextStatus,
       detectedLanguage: 'en',
       isRead: !hasUnread,
@@ -248,6 +283,7 @@ async function syncThread(accountId: string, accountEmail: string, gmailThreadId
         subject: latest.subject || '(no subject)',
         customerEmail: firstInbound.fromEmail,
         customerName: firstInbound.fromName,
+        replyFromEmail: nextReplyFromEmail,
         status: nextStatus,
         isRead: !hasUnread,
         lastMessageAt: latest.sentAt,
@@ -269,6 +305,8 @@ async function syncThread(accountId: string, accountEmail: string, gmailThreadId
         fromEmail: message.fromEmail,
         fromName: message.fromName,
         toEmail: message.toEmail,
+        toHeader: message.toHeader,
+        ccHeader: message.ccHeader,
         body: message.body,
         direction: message.direction,
         sentAt: message.sentAt,
@@ -279,6 +317,8 @@ async function syncThread(accountId: string, accountEmail: string, gmailThreadId
           rfcMessageId: message.rfcMessageId,
           inReplyTo: message.inReplyTo,
           references: message.references,
+          toHeader: message.toHeader,
+          ccHeader: message.ccHeader,
           body: message.body,
           sentAt: message.sentAt,
         },

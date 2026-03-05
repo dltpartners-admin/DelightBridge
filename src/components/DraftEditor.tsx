@@ -18,6 +18,7 @@ interface DraftEditorProps {
   isGenerating: boolean;
   isSending: boolean;
   onSave: (content: string) => void;
+  onReplyFromChange: (email: string) => void;
   onRegenerate: () => void;
   onSend: () => void;
   onAddAttachments: (files: File[]) => void;
@@ -32,6 +33,7 @@ export function DraftEditor({
   isGenerating,
   isSending,
   onSave,
+  onReplyFromChange,
   onRegenerate,
   onSend,
   onAddAttachments,
@@ -108,6 +110,9 @@ export function DraftEditor({
     editor.commands.setContent(template.body);
   };
 
+  const senderOptions = service.senderIdentities.filter((identity) => identity.isEnabled);
+  const selectedFrom = (thread.replyFromEmail || service.email).trim().toLowerCase();
+
   if (isGenerating) {
     return (
       <div className="flex flex-col min-h-[400px]">
@@ -141,7 +146,22 @@ export function DraftEditor({
           <span className="text-[12px] font-semibold uppercase tracking-wide text-[#a09d98] w-12">
             From
           </span>
-          <span className="text-[14px] text-[#1c1c1c]">{service.email}</span>
+          {senderOptions.length <= 1 ? (
+            <span className="text-[14px] text-[#1c1c1c]">{selectedFrom}</span>
+          ) : (
+            <select
+              value={selectedFrom}
+              onChange={(e) => onReplyFromChange(e.target.value)}
+              className="h-8 min-w-[220px] rounded-lg border bg-white px-2.5 text-[12px] text-[#1c1c1c]"
+              style={{ borderColor: 'var(--border)' }}
+            >
+              {senderOptions.map((identity) => (
+                <option key={identity.id} value={identity.email}>
+                  {identity.displayName ? `${identity.displayName} <${identity.email}>` : identity.email}
+                </option>
+              ))}
+            </select>
+          )}
         </div>
         <div className="flex items-center gap-2">
           <span className="text-[12px] font-semibold uppercase tracking-wide text-[#a09d98] w-12">

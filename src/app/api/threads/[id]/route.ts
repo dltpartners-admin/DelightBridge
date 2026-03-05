@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { categories, drafts, emails, emailThreads, gmailAccounts } from '@/lib/db/schema';
+import { categories, drafts, emails, emailThreads, gmailAccounts, serviceSenderIdentities } from '@/lib/db/schema';
 import { requireSession } from '@/lib/session';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { markGmailThreadAsRead, markGmailThreadAsUnread } from '@/lib/gmail';
 import { stripHtml } from '@/lib/utils';
 
@@ -35,6 +35,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     customerEmail: thread.customerEmail,
     customerName: thread.customerName,
     categoryId: cat ? cat.id : (thread.categoryId ?? ''),
+    replyFromEmail: thread.replyFromEmail ?? '',
     status: thread.status,
     detectedLanguage: thread.detectedLanguage,
     isRead: thread.isRead,
@@ -74,7 +75,31 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if ('status' in body) threadPatch.status = body.status;
   if ('isRead' in body) threadPatch.isRead = body.isRead;
   if ('categoryId' in body) threadPatch.categoryId = body.categoryId;
+  if ('replyFromEmail' in body) threadPatch.replyFromEmail = body.replyFromEmail;
   if ('detectedLanguage' in body) threadPatch.detectedLanguage = body.detectedLanguage;
+
+  if ('replyFromEmail' in body) {
+    const nextReplyFromEmail = (body.replyFromEmail ?? '').trim().toLowerCase();
+    if (!nextReplyFromEmail) {
+      threadPatch.replyFromEmail = null;
+    } else {
+      const [matchedIdentity] = await db
+        .select({ email: serviceSenderIdentities.email, isEnabled: serviceSenderIdentities.isEnabled })
+        .from(serviceSenderIdentities)
+        .where(
+          and(
+            eq(serviceSenderIdentities.accountId, thread.accountId),
+            eq(serviceSenderIdentities.email, nextReplyFromEmail)
+          )
+        )
+        .limit(1);
+
+      if (!matchedIdentity || !matchedIdentity.isEnabled) {
+        return NextResponse.json({ error: 'invalid_reply_from_email' }, { status: 400 });
+      }
+      threadPatch.replyFromEmail = matchedIdentity.email;
+    }
+  }
 
   if ((typeof body.isRead === 'boolean' || body.status === 'archived') && thread.gmailThreadId) {
     const [account] = await db

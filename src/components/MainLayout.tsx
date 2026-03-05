@@ -463,6 +463,19 @@ export function MainLayout({ currentUser }: { currentUser: CurrentUser }) {
     [threads, updateThread]
   );
 
+  const handleReplyFromChange = useCallback(
+    (threadId: string, replyFromEmail: string) => {
+      const normalized = replyFromEmail.trim().toLowerCase();
+      updateThread(threadId, { replyFromEmail: normalized });
+      fetch(`/api/threads/${threadId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ replyFromEmail: normalized }),
+      });
+    },
+    [updateThread]
+  );
+
   const handleAddAttachments = useCallback(
     (threadId: string, files: File[]) => {
       const thread = threads.find((t) => t.id === threadId);
@@ -706,6 +719,7 @@ export function MainLayout({ currentUser }: { currentUser: CurrentUser }) {
             isTranslating={translatingFor === currentThread.id}
             isSending={sendingIds.has(currentThread.id)}
             onSaveDraft={(content) => handleSaveDraft(currentThread.id, content)}
+            onReplyFromChange={(email) => handleReplyFromChange(currentThread.id, email)}
             onRegenerate={() => generateDraft(currentThread.id)}
             onSend={() => handleSend(currentThread.id)}
             onTalkToDraft={(instruction) => talkToDraft(currentThread.id, instruction)}

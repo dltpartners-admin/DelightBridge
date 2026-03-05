@@ -15,6 +15,7 @@ interface MailDetailProps {
   isTranslating: boolean;
   isSending: boolean;
   onSaveDraft: (content: string) => void;
+  onReplyFromChange: (email: string) => void;
   onRegenerate: () => void;
   onSend: () => void;
   onTalkToDraft: (instruction: string) => Promise<void> | void;
@@ -34,6 +35,7 @@ export function MailDetail({
   isTranslating,
   isSending,
   onSaveDraft,
+  onReplyFromChange,
   onRegenerate,
   onSend,
   onTalkToDraft,
@@ -122,6 +124,7 @@ export function MailDetail({
             isGenerating={isGenerating}
             isSending={isSending}
             onSave={onSaveDraft}
+            onReplyFromChange={onReplyFromChange}
             onRegenerate={onRegenerate}
             onSend={onSend}
             onAddAttachments={onAddAttachments}

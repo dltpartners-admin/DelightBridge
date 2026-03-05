@@ -132,6 +132,51 @@ export async function startGmailWatch({
   return (await res.json()) as { historyId?: string; expiration?: string };
 }
 
+export async function listGmailSenderIdentities(accountId: string) {
+  let accessToken = await getAccessToken(accountId);
+
+  const listSendAs = async (token: string) => {
+    return fetch('https://gmail.googleapis.com/gmail/v1/users/me/settings/sendAs', {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+  };
+
+  let res = await listSendAs(accessToken);
+  if (res.status === 401) {
+    accessToken = await refreshAccessToken(accountId);
+    res = await listSendAs(accessToken);
+  }
+
+  if (!res.ok) {
+    const detail = await res.text();
+    throw new Error(`Gmail sendAs list failed: ${detail}`);
+  }
+
+  const json = (await res.json()) as {
+    sendAs?: Array<{
+      sendAsEmail?: string;
+      displayName?: string;
+      isPrimary?: boolean;
+      isDefault?: boolean;
+      verificationStatus?: string;
+      treatAsAlias?: boolean;
+      smtpMsa?: unknown;
+    }>;
+  };
+
+  return (json.sendAs ?? [])
+    .filter((entry) => !!entry.sendAsEmail)
+    .map((entry) => ({
+      email: (entry.sendAsEmail ?? '').trim().toLowerCase(),
+      displayName: entry.displayName?.trim() ?? '',
+      isDefault: !!entry.isDefault || !!entry.isPrimary,
+      isEnabled: entry.verificationStatus ? entry.verificationStatus.toLowerCase() === 'accepted' : true,
+    }))
+    .filter((entry) => !!entry.email);
+}
+
 export async function markGmailThreadAsRead({
   accountId,
   threadId,
