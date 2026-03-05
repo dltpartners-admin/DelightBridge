@@ -76,16 +76,16 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if ('categoryId' in body) threadPatch.categoryId = body.categoryId;
   if ('detectedLanguage' in body) threadPatch.detectedLanguage = body.detectedLanguage;
 
-  if (typeof body.isRead === 'boolean' && thread.gmailThreadId) {
+  if ((typeof body.isRead === 'boolean' || body.status === 'archived') && thread.gmailThreadId) {
     const [account] = await db
       .select({ refreshToken: gmailAccounts.refreshToken })
       .from(gmailAccounts)
       .where(eq(gmailAccounts.id, thread.accountId));
 
     if (account?.refreshToken) {
-      if (body.isRead) {
+      if (body.status === 'archived' || body.isRead === true) {
         await markGmailThreadAsRead({ accountId: thread.accountId, threadId: thread.gmailThreadId });
-      } else {
+      } else if (body.isRead === false) {
         await markGmailThreadAsUnread({ accountId: thread.accountId, threadId: thread.gmailThreadId });
       }
     }

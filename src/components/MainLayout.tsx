@@ -23,8 +23,8 @@ export function MainLayout({ currentUser }: { currentUser: CurrentUser }) {
   const [services, setServices] = useState<Service[]>([]);
   const [selectedServiceId, setSelectedServiceId] = useState<string>('');
   const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null);
-  const [filter, setFilter] = useState<FilterType>('inbox');
-  const [unreadOnly, setUnreadOnly] = useState(false);
+  const [filter, setFilter] = useState<FilterType>('needsReply');
+  const [archivedOnly, setArchivedOnly] = useState(false);
   const [hasDraftOnly, setHasDraftOnly] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
@@ -191,10 +191,13 @@ export function MainLayout({ currentUser }: { currentUser: CurrentUser }) {
   const filteredThreads = threads
     .filter((t) => {
       if (t.serviceId !== selectedServiceId) return false;
-      if (filter !== 'all') {
-        if (t.status !== filter) return false;
+      if (archivedOnly) {
+        if (t.status !== 'archived') return false;
+      } else {
+        if (t.status === 'archived') return false;
+        if (filter === 'needsReply' && t.status !== 'inbox') return false;
+        if (filter === 'replied' && t.status !== 'sent') return false;
       }
-      if (unreadOnly && t.isRead) return false;
       if (hasDraftOnly && !t.draft.trim()) return false;
       if (categoryFilter && t.categoryId !== categoryFilter) return false;
       const query = searchQuery.trim().toLowerCase();
@@ -409,8 +412,8 @@ export function MainLayout({ currentUser }: { currentUser: CurrentUser }) {
       setSelectedThreadId(null);
       setCheckedIds(new Set());
       setCategoryFilter(null);
-      setFilter('inbox');
-      setUnreadOnly(false);
+      setFilter('needsReply');
+      setArchivedOnly(false);
       setHasDraftOnly(false);
       preGeneratedDraftIdsRef.current.clear();
     },
@@ -426,16 +429,8 @@ export function MainLayout({ currentUser }: { currentUser: CurrentUser }) {
       setSelectedThreadId(threadId);
       const thread = threads.find((t) => t.id === threadId);
       if (!thread) return;
-      if (!thread.isRead) {
-        updateThread(threadId, { isRead: true });
-        fetch(`/api/threads/${threadId}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ isRead: true }),
-        });
-      }
     },
-    [threads, updateThread]
+    [threads]
   );
 
   const handleToggleCheck = useCallback((threadId: string) => {
@@ -592,7 +587,7 @@ export function MainLayout({ currentUser }: { currentUser: CurrentUser }) {
   const handleArchive = useCallback(
     (ids: Set<string>) => {
       setThreads((prev) =>
-        prev.map((t) => (ids.has(t.id) ? { ...t, status: 'archived' as const } : t))
+        prev.map((t) => (ids.has(t.id) ? { ...t, status: 'archived' as const, isRead: true } : t))
       );
       if (selectedThreadId && ids.has(selectedThreadId)) setSelectedThreadId(null);
       ids.forEach((tid) => {
@@ -606,19 +601,6 @@ export function MainLayout({ currentUser }: { currentUser: CurrentUser }) {
     },
     [selectedThreadId]
   );
-
-  const handleMarkUnread = useCallback((ids: Set<string>) => {
-    if (ids.size === 0) return;
-    setThreads((prev) => prev.map((t) => (ids.has(t.id) ? { ...t, isRead: false } : t)));
-    ids.forEach((tid) => {
-      fetch(`/api/threads/${tid}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ isRead: false }),
-      });
-    });
-    setCheckedIds(new Set());
-  }, []);
 
   // ── Render ─────────────────────────────────────────────────────
   if (loading) {
@@ -684,7 +666,7 @@ export function MainLayout({ currentUser }: { currentUser: CurrentUser }) {
         searchQuery={searchQuery}
         selectedThreadId={selectedThreadId}
         filter={filter}
-        unreadOnly={unreadOnly}
+        archivedOnly={archivedOnly}
         hasDraftOnly={hasDraftOnly}
         categoryFilter={categoryFilter}
         checkedIds={checkedIds}
@@ -692,13 +674,12 @@ export function MainLayout({ currentUser }: { currentUser: CurrentUser }) {
         onToggleCheck={handleToggleCheck}
         onSelectAll={handleSelectAll}
         onFilterChange={setFilter}
-        onUnreadOnlyChange={setUnreadOnly}
+        onArchivedOnlyChange={setArchivedOnly}
         onHasDraftOnlyChange={setHasDraftOnly}
         onSearchQueryChange={setSearchQuery}
         onCategoryFilterChange={setCategoryFilter}
         onBulkSend={handleBulkSend}
         onArchive={handleArchive}
-        onMarkUnread={handleMarkUnread}
         onDeselect={() => setCheckedIds(new Set())}
       />
 

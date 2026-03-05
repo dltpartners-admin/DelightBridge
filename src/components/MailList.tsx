@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { ChevronDown, Search, Send, Archive, X, Mail } from 'lucide-react';
+import { ChevronDown, Search, Send, Archive, X } from 'lucide-react';
 import type { Service, EmailThread, FilterType } from '@/lib/types';
 import { cn, formatTime, getInitials, getAvatarColor, stripHtml } from '@/lib/utils';
 
@@ -13,7 +13,7 @@ interface MailListProps {
   searchQuery: string;
   selectedThreadId: string | null;
   filter: FilterType;
-  unreadOnly: boolean;
+  archivedOnly: boolean;
   hasDraftOnly: boolean;
   categoryFilter: string | null;
   checkedIds: Set<string>;
@@ -21,20 +21,18 @@ interface MailListProps {
   onToggleCheck: (id: string) => void;
   onSelectAll: () => void;
   onFilterChange: (f: FilterType) => void;
-  onUnreadOnlyChange: (value: boolean) => void;
+  onArchivedOnlyChange: (value: boolean) => void;
   onHasDraftOnlyChange: (value: boolean) => void;
   onSearchQueryChange: (query: string) => void;
   onCategoryFilterChange: (cat: string | null) => void;
   onBulkSend: () => void;
   onArchive: (ids: Set<string>) => void;
-  onMarkUnread: (ids: Set<string>) => void;
   onDeselect: () => void;
 }
 
 const FILTER_OPTIONS: { label: string; value: FilterType }[] = [
-  { label: 'Inbox', value: 'inbox' },
-  { label: 'Sent', value: 'sent' },
-  { label: 'Archived', value: 'archived' },
+  { label: 'Needs Reply', value: 'needsReply' },
+  { label: 'Replied', value: 'replied' },
   { label: 'All', value: 'all' },
 ];
 
@@ -45,20 +43,19 @@ export function MailList({
   searchQuery,
   selectedThreadId,
   filter,
-  unreadOnly,
+  archivedOnly,
   hasDraftOnly,
   categoryFilter,
   checkedIds,
   onSelectThread,
   onToggleCheck,
   onFilterChange,
-  onUnreadOnlyChange,
+  onArchivedOnlyChange,
   onHasDraftOnlyChange,
   onSearchQueryChange,
   onCategoryFilterChange,
   onBulkSend,
   onArchive,
-  onMarkUnread,
   onDeselect,
 }: MailListProps) {
   const [filterOpen, setFilterOpen] = useState(false);
@@ -162,9 +159,9 @@ export function MailList({
           </div>
 
           <TogglePill
-            label="Unread"
-            active={unreadOnly}
-            onClick={() => onUnreadOnlyChange(!unreadOnly)}
+            label="Archived"
+            active={archivedOnly}
+            onClick={() => onArchivedOnlyChange(!archivedOnly)}
           />
 
           <TogglePill
@@ -231,11 +228,6 @@ export function MailList({
               icon={<Archive className="h-3.5 w-3.5" />}
               label="Archive"
               onClick={() => onArchive(checkedIds)}
-            />
-            <ActionBtn
-              icon={<Mail className="h-3.5 w-3.5" />}
-              label="Mark unread"
-              onClick={() => onMarkUnread(checkedIds)}
             />
             <button
               onClick={onDeselect}
@@ -333,8 +325,7 @@ function ThreadItem({
             <span
               className={cn(
                 'truncate text-[12.5px] font-semibold',
-                isSelected ? 'text-white' : 'text-[#1c1c1c]',
-                !thread.isRead && !isSelected && 'font-bold'
+                isSelected ? 'text-white' : 'text-[#1c1c1c]'
               )}
             >
               {thread.customerName}
@@ -353,8 +344,7 @@ function ThreadItem({
           <div
             className={cn(
               'mb-1 truncate text-[11.5px]',
-              isSelected ? 'text-white/90' : 'text-[#3d3a37]',
-              !thread.isRead && !isSelected && 'font-medium'
+              isSelected ? 'text-white/90' : 'text-[#3d3a37]'
             )}
           >
             {thread.subject}
@@ -422,10 +412,6 @@ function ThreadItem({
         </div>
       </div>
 
-      {/* Unread dot */}
-      {!thread.isRead && !isSelected && (
-        <div className="absolute left-1 top-1/2 -translate-y-1/2 h-1.5 w-1.5 rounded-full bg-[#3b5bdb]" />
-      )}
     </li>
   );
 }
