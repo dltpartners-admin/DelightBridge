@@ -42,6 +42,7 @@ export function MainLayout({ currentUser }: { currentUser: CurrentUser }) {
   const [bulkSendModal, setBulkSendModal] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const dontShowSendConfirmRef = useRef(false);
+  const preGeneratedDraftIdsRef = useRef<Set<string>>(new Set());
 
   // ── Initial data load ─────────────────────────────────────────────────────
   useEffect(() => {
@@ -89,17 +90,29 @@ export function MainLayout({ currentUser }: { currentUser: CurrentUser }) {
       .catch(() => setLoading(false));
   }, []);
 
-  useEffect(() => {
+  const loadThreads = useCallback(() => {
     if (!selectedServiceId) return;
     setThreadsLoading(true);
     fetch(`/api/threads?serviceId=${selectedServiceId}&limit=100`)
       .then((r) => r.json())
       .then((data: EmailThread[]) => {
         setThreads(data);
-        setSelectedThreadId(null);
+        setSelectedThreadId((prev) => (prev && data.some((thread) => thread.id === prev) ? prev : null));
       })
       .finally(() => setThreadsLoading(false));
   }, [selectedServiceId]);
+
+  useEffect(() => {
+    loadThreads();
+  }, [loadThreads]);
+
+  useEffect(() => {
+    if (!selectedServiceId) return;
+    const timer = window.setInterval(() => {
+      loadThreads();
+    }, 30000);
+    return () => window.clearInterval(timer);
+  }, [selectedServiceId, loadThreads]);
 
   useEffect(() => {
     if (!selectedThreadId) return;
@@ -263,6 +276,25 @@ export function MainLayout({ currentUser }: { currentUser: CurrentUser }) {
     [threads, services, updateThread]
   );
 
+  useEffect(() => {
+    const candidates = threads
+      .filter((thread) => {
+        if (thread.serviceId !== selectedServiceId) return false;
+        if (thread.status !== 'inbox') return false;
+        if (thread.draft.trim()) return false;
+        return !preGeneratedDraftIdsRef.current.has(thread.id);
+      })
+      .slice(0, 3)
+      .map((thread) => thread.id);
+
+    if (candidates.length === 0) return;
+
+    for (const threadId of candidates) {
+      preGeneratedDraftIdsRef.current.add(threadId);
+      void generateDraft(threadId);
+    }
+  }, [threads, selectedServiceId, generateDraft]);
+
   const talkToDraft = useCallback(
     async (threadId: string, instruction: string) => {
       const thread = threads.find((t) => t.id === threadId);
@@ -377,6 +409,7 @@ export function MainLayout({ currentUser }: { currentUser: CurrentUser }) {
       setCheckedIds(new Set());
       setCategoryFilter(null);
       setFilter('inbox');
+      preGeneratedDraftIdsRef.current.clear();
     },
     []
   );
@@ -398,11 +431,8 @@ export function MainLayout({ currentUser }: { currentUser: CurrentUser }) {
           body: JSON.stringify({ isRead: true }),
         });
       }
-      if (!thread.draft && thread.status === 'inbox') {
-        await generateDraft(threadId);
-      }
     },
-    [threads, updateThread, generateDraft]
+    [threads, updateThread]
   );
 
   const handleToggleCheck = useCallback((threadId: string) => {
